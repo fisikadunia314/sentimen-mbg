@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Lingkungan & kredensial
+.env
+
+# Data, model, dan artefak hasil generate (dibuat saat aplikasi berjalan)
+data/*
+models/*
+static/charts/*.png
+!data/.gitkeep
+!models/.gitkeep
+!static/charts/.gitkeep
+
+# Build Tailwind (sumber di static/css/input.css, hasil sudah di-commit)
+node_modules/

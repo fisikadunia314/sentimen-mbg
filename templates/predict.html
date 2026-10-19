@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Prediksi Komentar — MBG Sentiment{% endblock %}
+{% block page_title %}Prediksi Komentar{% endblock %}
+
+{% block content %}
+{{ card_open('Uji Komentar Baru', 'Ketik komentar — model Naïve Bayes, SVM, dan leksikon memberikan label sentimennya') }}
+<form method="post" class="space-y-4">
+  <div>
+    <label for="komentar" class="mb-1.5 block text-sm font-medium text-slate-700">Teks Komentar</label>
+    <textarea id="komentar" name="komentar" rows="4" required maxlength="2000"
+              placeholder="Contoh: Program MBG sangat membantu anak sekolah, semoga terus dilanjutkan…"
+              class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">{{ result.text if result else '' }}</textarea>
+    <p class="mt-1 text-xs text-slate-400">Maks. 2000 karakter.</p>
+  </div>
+  <button type="submit"
+          class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-700">
+    {{ icon_svg(IC['chat'], 'h-4 w-4') }} Analisis Komentar
+  </button>
+</form>
+{{ card_close() }}
+
+{% if result %}
+{{ card_open('Hasil Analisis') }}
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+  <div class="rounded-xl border border-slate-200 p-4 text-center">
+    <div class="mb-2 text-sm font-semibold text-slate-500">Naïve Bayes</div>
+    <div class="flex justify-center">{{ sent_badge(result.naive_bayes) }}</div>
+  </div>
+  <div class="rounded-xl border border-slate-200 p-4 text-center">
+    <div class="mb-2 text-sm font-semibold text-slate-500">SVM (Linear)</div>
+    <div class="flex justify-center">{{ sent_badge(result.svm) }}</div>
+  </div>
+  <div class="rounded-xl border border-slate-200 p-4 text-center">
+    <div class="mb-2 text-sm font-semibold text-slate-500">Leksikon (skor {{ result.lexicon_score }})</div>
+    <div class="flex justify-center">{{ sent_badge(result.lexicon) }}</div>
+  </div>
+</div>
+
+{% set setuju = (result.naive_bayes == result.svm) and (result.lexicon == result.naive_bayes) %}
+<p class="mt-4 text-sm {% if setuju %}text-emerald-600{% else %}text-amber-600{% endif %}">
+  {% if setuju %}
+  ✓ Ketiga metode menghasilkan label yang sama.
+  {% else %}
+  ⚠ Metode menghasilkan label berbeda — pertimbangkan validasi manual (komentar berada di batas keputusan).
+  {% endif %}
+</p>
+
+<h4 class="mb-2 mt-6 text-sm font-semibold text-slate-700">Pipeline Preprocessing</h4>
+<ol class="space-y-2 text-sm">
+  <li class="rounded-lg bg-slate-50 p-3">
+    <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Hasil Cleaning & Normalisasi</span>
+    <code class="break-words font-mono text-xs text-slate-700">{{ result.cleaned or '(kosong)' }}</code>
+  </li>
+  <li class="rounded-lg bg-slate-50 p-3">
+    <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Hasil Stemming (input model)</span>
+    <code class="break-words font-mono text-xs text-slate-700">{{ result.stemmed or '(kosong)' }}</code>
+  </li>
+</ol>
+{{ card_close() }}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Analisis Video — MBG Sentiment{% endblock %}
+{% block page_title %}Analisis Sentimen Video{% endblock %}
+
+{% block content %}
+<!-- Form analisis -->
+{{ card_open('Pilih Video YouTube', 'Tempel URL video — komentar & reply akan di-crawl, diproses, dan diberi label sentimen',
+        action='<span class="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 ring-1 ring-inset ring-red-600/20">Fitur Utama</span>') }}
+<form method="post" class="space-y-4">
+  <div>
+    <label for="youtube_url" class="mb-1.5 block text-sm font-medium text-slate-700">URL Video YouTube</label>
+    <input type="url" id="youtube_url" name="youtube_url" required
+           value="{{ result.url if result else '' }}"
+           placeholder="https://www.youtube.com/watch?v=..."
+           class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+  </div>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label for="max_pages" class="mb-1.5 block text-sm font-medium text-slate-700">Maks. Halaman Komentar <span class="text-slate-400">(100/halaman)</span></label>
+      <select id="max_pages" name="max_pages"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+        {% for n in [1, 2, 3, 5, 10, 15, 20] %}
+        <option value="{{ n }}" {% if n == 5 %}selected{% endif %}>{{ n }} halaman (≈{{ n * 100 }} komentar)</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="flex items-end">
+      <label class="inline-flex cursor-pointer items-center gap-2.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm">
+        <input type="checkbox" name="include_replies" checked
+               class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+        <span class="text-slate-700">Sertakan reply komentar</span>
+      </label>
+    </div>
+  </div>
+
+  {% if not api_ready %}
+  <div class="flex items-start gap-2.5 rounded-lg border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    <span class="mt-0.5 flex-shrink-0">{{ icon_svg(IC['alert'], 'h-4 w-4') }}</span>
+    <span>
+      <b>YOUTUBE_API_KEY belum di-set.</b> Salin <code class="font-mono">.env.example</code> menjadi
+      <code class="font-mono">.env</code>, isi API key (Google Cloud Console → YouTube Data API v3), lalu restart aplikasi.
+    </span>
+  </div>
+  {% endif %}
+
+  <div class="flex flex-wrap items-center gap-4">
+    <button type="submit" {% if not api_ready %}disabled{% endif %}
+            class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
+      {{ icon_svg(IC['play'], 'h-4 w-4') }} Analisis Video
+    </button>
+    <p class="text-xs text-slate-400">
+      ⏱ Untuk ribuan komentar (termasuk reply), proses bisa memakan 1–5 menit —
+      komentar diambil langsung dari YouTube.
+    </p>
+  </div>
+</form>
+{{ card_close() }}
+
+<script>
+  // Feedback progres: disable tombol + spinner saat proses crawling/analisis
+  (function () {
+    var form = document.querySelector("form");
+    if (!form) return;
+    form.addEventListener("submit", function () {
+      var btn = form.querySelector("button[type=submit]");
+      if (!btn) return;
+      btn.disabled = true;
+      btn.innerHTML = '<svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">' +
+        '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
+        '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"></path></svg>' +
+        '&nbsp;Menganalisis… (bisa 1–5 menit)';
+    });
+  })();
+</script>
+
+{% if result %}
+  <!-- Info video -->
+  {{ card_open('Video') }}
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div class="min-w-0">
+      <h3 class="text-lg font-bold text-slate-800">{{ result.video.title }}</h3>
+      <p class="mt-1 text-sm text-slate-500">
+        {{ result.video.channel }} · Diunggah {{ (result.video.published_at or '')[:10] }}
+      </p>
+      <div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm text-slate-600">
+        <span>👁 <b>{{ result.video.view_count|num }}</b> views</span>
+        <span>👍 <b>{{ result.video.like_count|num }}</b> suka</span>
+        <span>💬 <b>{{ result.video.comment_count|num }}</b> komentar</span>
+      </div>
+    </div>
+    <a href="{{ result.video.url }}" target="_blank" rel="noopener"
+       class="inline-flex flex-shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+      Buka di YouTube →
+    </a>
+  </div>
+  {{ card_close() }}
+
+  <!-- Statistik -->
+  <div class="mb-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
+    {{ stat_card('Teks Dianalisis', result.total, 'chat', 'bg-blue-50 text-blue-600') }}
+    {{ stat_card('Komentar Top-Level', result.total_comment, 'chat', 'bg-violet-50 text-violet-600') }}
+    {{ stat_card('Reply', result.total_reply, 'chat', 'bg-cyan-50 text-cyan-600') }}
+    {{ stat_card('Sentimen Dominan',
+                 (result.dist_all|dictsort(reverse=true))[0][0] if result.dist_all else '—',
+                 'chart', 'bg-emerald-50 text-emerald-600') }}
+  </div>
+
+  {% if result.model_available %}
+  <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div class="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="min-w-0">
+        <div class="text-sm text-slate-500">Kesesuaian Leksikon ↔ Naïve Bayes</div>
+        <div class="text-2xl font-bold text-slate-800">{{ result.agreement_nb }}%</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="min-w-0">
+        <div class="text-sm text-slate-500">Kesesuaian Leksikon ↔ SVM</div>
+        <div class="text-2xl font-bold text-slate-800">{{ result.agreement_svm }}%</div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Chart -->
+  <div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+    {% if dist_url_ok %}
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 class="mb-4 text-base font-semibold text-slate-800">Distribusi Sentimen</h3>
+      <div class="flex justify-center">
+        <img src="{{ url_for('static', filename='charts/distribusi_url.png') }}?v={{ dist_url_ver }}"
+             alt="Distribusi sentimen video" class="w-full">
+      </div>
+    </div>
+    {% endif %}
+    {% if vs_reply_ok %}
+    <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h3 class="mb-4 text-base font-semibold text-slate-800">Komentar vs Reply</h3>
+      <div class="flex justify-center">
+        <img src="{{ url_for('static', filename='charts/comment_vs_reply.png') }}?v={{ vs_reply_ver }}"
+             alt="Perbandingan komentar dan reply" class="w-full">
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Tabel sampel -->
+  {{ card_open('Detail Komentar (sampel 100 pertama)', 'Label leksikon = ground truth; NB & SVM = hasil prediksi model' if result.model_available else 'Label berdasarkan skor leksikon dengan penanganan negasi') }}
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead>
+        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <th class="px-3 py-2">Komentar</th>
+          <th class="px-3 py-2">Tipe</th>
+          <th class="px-3 py-2">Label Leksikon</th>
+          <th class="px-3 py-2 text-center">Skor</th>
+          {% if result.model_available %}
+          <th class="px-3 py-2">Naïve Bayes</th>
+          <th class="px-3 py-2">SVM</th>
+          {% endif %}
+          <th class="px-3 py-2 text-right">👍</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for s in result.samples %}
+        <tr class="align-top hover:bg-slate-50">
+          <td class="max-w-md px-3 py-2.5 text-slate-700">
+            {{ s.comment_text[:150] }}{% if s.comment_text|length > 150 %}…{% endif %}
+          </td>
+          <td class="px-3 py-2.5 text-xs text-slate-500">{{ s.type }}</td>
+          <td class="px-3 py-2.5">{{ sent_badge(s.label) }}</td>
+          <td class="px-3 py-2.5 text-center tabular-nums text-slate-600">{{ s.score }}</td>
+          {% if result.model_available %}
+          <td class="px-3 py-2.5">{{ sent_badge(s.pred_nb) }}</td>
+          <td class="px-3 py-2.5">{{ sent_badge(s.pred_svm) }}</td>
+          {% endif %}
+          <td class="px-3 py-2.5 text-right tabular-nums text-slate-500">{{ s.like_count or 0 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ card_close() }}
+{% endif %}
+{% endblock %}

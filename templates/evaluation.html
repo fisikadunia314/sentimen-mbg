@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block page_title %}Evaluasi Model{% endblock %}
+
+{% block content %}
+{% set info = metrics.get('dataset_info', {}) %}
+{% set order = ['positif', 'netral', 'negatif'] %}
+
+{{ card_open('Informasi Dataset Evaluasi') }}
+<div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+  <div class="rounded-lg bg-slate-50 p-3 text-center">
+    <div class="text-xl font-bold text-slate-800">{{ info.get('total_samples', 0) }}</div>
+    <div class="text-xs text-slate-500">Total Sampel</div>
+  </div>
+  <div class="rounded-lg bg-slate-50 p-3 text-center">
+    <div class="text-xl font-bold text-slate-800">{{ info.get('train_samples', 0) }}</div>
+    <div class="text-xs text-slate-500">Train (80%)</div>
+  </div>
+  <div class="rounded-lg bg-slate-50 p-3 text-center">
+    <div class="text-xl font-bold text-slate-800">{{ info.get('test_samples', 0) }}</div>
+    <div class="text-xs text-slate-500">Test (20%)</div>
+  </div>
+  <div class="rounded-lg bg-slate-50 p-3 text-center">
+    <div class="text-xl font-bold text-slate-800">
+      {% set ld = info.get('label_distribution', {}) %}
+      {{ ld.get('positif', 0) }}/{{ ld.get('netral', 0) }}/{{ ld.get('negatif', 0) }}
+    </div>
+    <div class="text-xs text-slate-500">Pos / Net / Neg</div>
+  </div>
+</div>
+{{ card_close() }}
+
+<div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+{% for name, label, ok, ver in [('naive_bayes', 'Naïve Bayes', cm_nb_ok, cm_nb_ver), ('svm', 'SVM (Linear)', cm_svm_ok, cm_svm_ver)] %}
+{% set m = metrics[name] %}
+  <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="mb-4 flex items-center justify-between">
+      <h3 class="text-base font-semibold text-slate-800">{{ label }}</h3>
+      <span class="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700 ring-1 ring-inset ring-violet-600/20">
+        F1 macro {{ "%0.2f"|format(m['f1_macro']) }}
+      </span>
+    </div>
+
+    <dl class="mb-4 grid grid-cols-4 gap-2 text-center">
+      <div class="rounded-md bg-slate-50 p-2.5">
+        <dt class="text-xs text-slate-500">Accuracy</dt>
+        <dd class="text-lg font-bold text-slate-800">{{ "%0.1f"|format(m['accuracy'] * 100) }}%</dd>
+      </div>
+      <div class="rounded-md bg-slate-50 p-2.5">
+        <dt class="text-xs text-slate-500">Precision</dt>
+        <dd class="text-lg font-bold text-slate-800">{{ "%0.1f"|format(m['precision_macro'] * 100) }}%</dd>
+      </div>
+      <div class="rounded-md bg-slate-50 p-2.5">
+        <dt class="text-xs text-slate-500">Recall</dt>
+        <dd class="text-lg font-bold text-slate-800">{{ "%0.1f"|format(m['recall_macro'] * 100) }}%</dd>
+      </div>
+      <div class="rounded-md bg-slate-50 p-2.5">
+        <dt class="text-xs text-slate-500">F1</dt>
+        <dd class="text-lg font-bold text-slate-800">{{ "%0.1f"|format(m['f1_macro'] * 100) }}%</dd>
+      </div>
+    </dl>
+
+    {% if ok %}
+    <div class="mb-4 flex justify-center">
+      <img src="{{ url_for('static', filename='charts/cm_' + name + '.png') }}?v={{ ver }}"
+           alt="Confusion matrix {{ label }}" class="w-full max-w-xs">
+    </div>
+    {% endif %}
+
+    <h4 class="mb-2 text-sm font-semibold text-slate-700">Per Kelas</h4>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200 text-sm">
+        <thead>
+          <tr class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <th class="px-3 py-1.5">Kelas</th>
+            <th class="px-3 py-1.5 text-right">Precision</th>
+            <th class="px-3 py-1.5 text-right">Recall</th>
+            <th class="px-3 py-1.5 text-right">F1</th>
+            <th class="px-3 py-1.5 text-right">Support</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for cls in order %}
+          {% if cls in m.classification_report %}
+          {% set r = m.classification_report[cls] %}
+          <tr>
+            <td class="px-3 py-1.5">{{ sent_badge(cls) }}</td>
+            <td class="px-3 py-1.5 text-right tabular-nums text-slate-700">{{ "%0.2f"|format(r['precision']) }}</td>
+            <td class="px-3 py-1.5 text-right tabular-nums text-slate-700">{{ "%0.2f"|format(r['recall']) }}</td>
+            <td class="px-3 py-1.5 text-right tabular-nums text-slate-700">{{ "%0.2f"|format(r['f1-score']) }}</td>
+            <td class="px-3 py-1.5 text-right tabular-nums text-slate-500">{{ r['support'] }}</td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{{ card_open('Catatan Metodologi') }}
+<ul class="list-disc space-y-1.5 pl-5 text-sm text-slate-600">
+  <li>Label ground truth dihasilkan <b>labeling leksikon</b> (skor berbasis leksikon Bahasa Indonesia dengan penanganan negasi, bigram, dan intensifier).</li>
+  <li>Metrik memakai <b>macro averaging</b> karena distribusi kelas tidak seimbang (kelas netral umumnya dominan).</li>
+  <li>Model dipelajari dari pola leksikon; interpretasi hasil sebaiknya disertai validasi manual terhadap sampel komentar.</li>
+</ul>
+{{ card_close() }}
+{% endblock %}

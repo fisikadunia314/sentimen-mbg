@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block page_title %}Preprocessing{% endblock %}
+
+{% block content %}
+{{ card_open('Preprocessing & Labeling', 'Bersihkan dan normalisasi teks, lalu beri label sentimen dengan leksikon Bahasa Indonesia') }}
+<!-- Pipeline visual -->
+<div class="mb-5 flex flex-wrap items-center gap-2 text-xs font-medium">
+  {% for step in ['Cleaning', 'Normalisasi Alay', 'Stopword (negasi dipertahankan)', 'Stemming Sastrawi', 'Labeling Leksikon'] %}
+  <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 ring-1 ring-inset ring-slate-500/20">
+    <span class="flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">{{ loop.index }}</span>
+    {{ step }}
+  </span>
+  {% if not loop.last %}<span class="text-slate-300">→</span>{% endif %}
+  {% endfor %}
+</div>
+<p class="mb-4 text-sm text-slate-600">
+  Total <b>{{ total }}</b> komentar siap diproses. Proses ini juga menghasilkan label
+  <b>positif / negatif / netral</b> berbasis skor leksikon (dengan penanganan negasi, bigram, dan intensifier)
+  yang menjadi ground truth untuk training model.
+</p>
+<form method="post" class="inline">
+  <button type="submit"
+          class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-700">
+    {{ icon_svg(IC['tune'], 'h-4 w-4') }} Jalankan Preprocessing & Labeling
+  </button>
+</form>
+{{ card_close() }}
+
+{% if has_proc %}
+  {% if dist_chart_ok %}
+  {{ card_open('Distribusi Hasil Labeling') }}
+  <div class="flex justify-center">
+    <img src="{{ url_for('static', filename='charts/distribusi.png') }}?v={{ dist_chart_ver }}"
+         alt="Distribusi sentimen" class="w-full max-w-lg">
+  </div>
+  <div class="mt-4 flex flex-wrap justify-center gap-4 text-sm">
+    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-emerald-500"></span> Positif: <b>{{ dist.get('positif', 0) }}</b></span>
+    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-slate-400"></span> Netral: <b>{{ dist.get('netral', 0) }}</b></span>
+    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-red-500"></span> Negatif: <b>{{ dist.get('negatif', 0) }}</b></span>
+  </div>
+  {{ card_close() }}
+  {% endif %}
+{% endif %}
+
+{{ card_open('Pratinjau Data (' ~ total ~ ' komentar)', 'Kolom hasil pipeline preprocessing') }}
+<div class="overflow-x-auto">
+  <table class="min-w-full divide-y divide-slate-200 text-sm">
+    <thead>
+      <tr class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <th class="px-3 py-2">Teks Asli</th>
+        <th class="px-3 py-2">Bersih</th>
+        <th class="px-3 py-2">Stem</th>
+        {% if has_proc %}<th class="px-3 py-2">Label</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for s in preview %}
+      <tr class="align-top hover:bg-slate-50">
+        <td class="max-w-xs px-3 py-2.5 text-slate-700">{{ (s.comment_text or '')[:100] }}{% if (s.comment_text or '')|length > 100 %}…{% endif %}</td>
+        <td class="max-w-xs px-3 py-2.5 text-slate-500">{% if s.clean is defined %}{{ s.clean[:100] }}{% else %}—{% endif %}</td>
+        <td class="max-w-xs px-3 py-2.5 font-mono text-xs text-slate-500">{% if s.stemmed is defined %}{{ s.stemmed[:80] }}{% else %}—{% endif %}</td>
+        {% if has_proc %}
+        <td class="px-3 py-2.5">{{ sent_badge(s.label) if s.label is defined else '—' }}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="mt-3 text-xs text-slate-400">Menampilkan 20 dari {{ total }} komentar.</p>
+{{ card_close() }}
+{% endblock %}

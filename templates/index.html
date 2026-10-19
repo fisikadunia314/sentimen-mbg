@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+{% if not has_data %}
+  <!-- Empty state -->
+  {{ card_open() }}
+  <div class="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-white px-6 py-16 text-center">
+    <span class="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+      {{ icon_svg(IC['play'], 'h-8 w-8') }}
+    </span>
+    <h2 class="mt-4 text-lg font-semibold text-slate-800">Belum ada data komentar</h2>
+    <p class="mt-1 max-w-md text-sm text-slate-500">
+      Mulai dengan menganalisis satu video YouTube, atau crawl komentar dari beberapa video
+      tentang kebijakan MBG.
+    </p>
+    <div class="mt-6 flex flex-wrap justify-center gap-3">
+      <a href="{{ url_for('analyze_url') }}"
+         class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-red-700">
+        {{ icon_svg(IC['play'], 'h-4 w-4') }} Analisis Video
+      </a>
+      <a href="{{ url_for('crawl') }}"
+         class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+        {{ icon_svg(IC['tray'], 'h-4 w-4') }} Crawl Dataset MBG
+      </a>
+    </div>
+    {% if not api_ready %}
+      <p class="mt-6 rounded-lg bg-amber-50 px-4 py-2 text-xs text-amber-700 ring-1 ring-inset ring-amber-600/20">
+        YOUTUBE_API_KEY belum di-set — salin <code class="font-mono">.env.example</code> menjadi <code class="font-mono">.env</code> lalu isi API key-nya.
+      </p>
+    {% endif %}
+  </div>
+  {{ card_close() }}
+{% else %}
+  <!-- Stat cards -->
+  <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    {{ stat_card('Total Komentar', total, 'chat', 'bg-blue-50 text-blue-600') }}
+    {{ stat_card('Video Sumber', video_rows|length if has_videos else '—', 'play', 'bg-red-50 text-red-600') }}
+    {{ stat_card('Sentimen Dominan', top_sent, 'chart', 'bg-emerald-50 text-emerald-600') }}
+    {{ stat_card('Model', 'Terlatih' if has_model else 'Belum', 'cpu', 'bg-violet-50 text-violet-600') }}
+  </div>
+
+  <!-- Distribusi -->
+  {% if dist_chart_ok %}
+  {{ card_open('Distribusi Sentimen', 'Berdasarkan labeling leksikon pada seluruh komentar') }}
+  <div class="flex justify-center">
+    <img src="{{ url_for('static', filename='charts/distribusi.png') }}?v={{ dist_chart_ver }}"
+         alt="Distribusi sentimen" class="w-full max-w-lg">
+  </div>
+  <div class="mt-4 flex flex-wrap justify-center gap-4 text-sm">
+    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-emerald-500"></span> Positif: <b>{{ dist.get('positif', 0) }}</b></span>
+    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-slate-400"></span> Netral: <b>{{ dist.get('netral', 0) }}</b></span>
+    <span class="inline-flex items-center gap-2"><span class="h-3 w-3 rounded-sm bg-red-500"></span> Negatif: <b>{{ dist.get('negatif', 0) }}</b></span>
+  </div>
+  {{ card_close() }}
+  {% endif %}
+
+  <!-- Video sumber -->
+  {% if has_videos %}
+  {{ card_open('Video Sumber', 'Video hasil crawling kata kunci') }}
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead>
+        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <th class="px-3 py-2">Judul</th>
+          <th class="px-3 py-2">Channel</th>
+          <th class="px-3 py-2 text-right">Views</th>
+          <th class="px-3 py-2 text-right">Komentar</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for v in video_rows %}
+        <tr class="hover:bg-slate-50">
+          <td class="max-w-xs truncate px-3 py-2.5 font-medium text-slate-700">
+            <a href="{{ v.url }}" target="_blank" rel="noopener" class="hover:text-blue-600 hover:underline">{{ v.title }}</a>
+          </td>
+          <td class="px-3 py-2.5 text-slate-500">{{ v.channel }}</td>
+          <td class="px-3 py-2.5 text-right tabular-nums text-slate-600">{{ v.view_count|num }}</td>
+          <td class="px-3 py-2.5 text-right tabular-nums text-slate-600">{{ v.comment_count|num }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ card_close() }}
+  {% endif %}
+
+  <!-- Ringkasan model -->
+  {% if metrics %}
+  {{ card_open('Ringkasan Model', 'Hasil evaluasi terakhir (test set)') }}
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    {% for name, label in [('naive_bayes', 'Naïve Bayes'), ('svm', 'SVM (Linear)')] %}
+      {% if name in metrics %}
+      <div class="rounded-lg border border-slate-200 p-4">
+        <div class="mb-3 flex items-center justify-between">
+          <h4 class="font-semibold text-slate-700">{{ label }}</h4>
+          <span class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-600/20">
+            F1 {{ "%0.2f"|format(metrics[name]['f1_macro']) }}
+          </span>
+        </div>
+        <dl class="grid grid-cols-3 gap-2 text-center text-sm">
+          <div class="rounded-md bg-slate-50 p-2">
+            <dt class="text-xs text-slate-500">Accuracy</dt>
+            <dd class="font-bold text-slate-800">{{ "%0.1f"|format(metrics[name]['accuracy'] * 100) }}%</dd>
+          </div>
+          <div class="rounded-md bg-slate-50 p-2">
+            <dt class="text-xs text-slate-500">Precision</dt>
+            <dd class="font-bold text-slate-800">{{ "%0.1f"|format(metrics[name]['precision_macro'] * 100) }}%</dd>
+          </div>
+          <div class="rounded-md bg-slate-50 p-2">
+            <dt class="text-xs text-slate-500">Recall</dt>
+            <dd class="font-bold text-slate-800">{{ "%0.1f"|format(metrics[name]['recall_macro'] * 100) }}%</dd>
+          </div>
+        </dl>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+  <div class="mt-4">
+    <a href="{{ url_for('evaluation') }}" class="text-sm font-semibold text-blue-600 hover:underline">Lihat detail evaluasi →</a>
+  </div>
+  {{ card_close() }}
+  {% else %}
+  {{ card_open('Ringkasan Model') }}
+  <p class="text-sm text-slate-500">Model belum dilatih. Jalankan
+    <a href="{{ url_for('training') }}" class="font-semibold text-blue-600 hover:underline">Training Model</a>
+    setelah preprocessing selesai.</p>
+  {{ card_close() }}
+  {% endif %}
+{% endif %}
+{% endblock %}

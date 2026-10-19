@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block page_title %}Training Model{% endblock %}
+
+{% block content %}
+{% set info = metrics.get('dataset_info', {}) if metrics else {} %}
+
+{{ card_open('Latih Model Klasifikasi', 'Naïve Bayes & SVM dilatih dengan fitur TF-IDF (1–2 gram) pada teks hasil stemming') }}
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+  <div class="rounded-lg border border-slate-200 p-4 text-center">
+    <div class="text-2xl font-bold text-slate-800">{{ info.get('total_samples', total_rows) }}</div>
+    <div class="mt-1 text-sm text-slate-500">Total Sampel</div>
+  </div>
+  <div class="rounded-lg border border-slate-200 p-4 text-center">
+    <div class="text-2xl font-bold text-slate-800">
+      {% set ld = info.get('label_distribution', {}) %}
+      {{ ld.get('positif', 0) }} / {{ ld.get('netral', 0) }} / {{ ld.get('negatif', 0) }}
+    </div>
+    <div class="mt-1 text-sm text-slate-500">Positif / Netral / Negatif</div>
+  </div>
+  <div class="rounded-lg border border-slate-200 p-4 text-center">
+    <div class="text-2xl font-bold text-slate-800">80% / 20%</div>
+    <div class="mt-1 text-sm text-slate-500">Train / Test Split</div>
+  </div>
+</div>
+<p class="mt-4 text-sm text-slate-600">
+  Label berasal dari <b>labeling leksikon</b> (ground truth). Model disimpan ke
+  <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">models/</code>
+  dan metrik evaluasinya ke <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">models/metrics.json</code>.
+</p>
+<form method="post" class="mt-5">
+  <button type="submit"
+          class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-700">
+    {{ icon_svg(IC['cpu'], 'h-4 w-4') }} Latih Model
+  </button>
+</form>
+{{ card_close() }}
+
+{% if metrics %}
+{{ card_open('Hasil Evaluasi Terakhir', 'Klik untuk melihat detail metrik & confusion matrix') }}
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+  {% for name, label in [('naive_bayes', 'Naïve Bayes'), ('svm', 'SVM (Linear)')] %}
+  {% if name in metrics %}
+  <div class="rounded-lg border border-slate-200 p-4">
+    <div class="mb-2 flex items-center justify-between">
+      <h4 class="font-semibold text-slate-700">{{ label }}</h4>
+      <span class="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-semibold text-violet-700 ring-1 ring-inset ring-violet-600/20">F1 {{ "%0.2f"|format(metrics[name]['f1_macro']) }}</span>
+    </div>
+    <div class="text-sm text-slate-600">
+      Accuracy <b>{{ "%0.1f"|format(metrics[name]['accuracy'] * 100) }}%</b> ·
+      Precision <b>{{ "%0.1f"|format(metrics[name]['precision_macro'] * 100) }}%</b> ·
+      Recall <b>{{ "%0.1f"|format(metrics[name]['recall_macro'] * 100) }}%</b>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+<div class="mt-4">
+  <a href="{{ url_for('evaluation') }}" class="text-sm font-semibold text-blue-600 hover:underline">Lihat halaman Evaluasi →</a>
+</div>
+{{ card_close() }}
+{% endif %}
+{% endblock %}

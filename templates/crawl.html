@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block page_title %}Crawling Data{% endblock %}
+
+{% block content %}
+{{ card_open('Crawl Dataset MBG', 'Crawl komentar dari beberapa video hasil pencarian kata kunci (dataset utama praktikum)') }}
+<div class="flex flex-wrap items-center justify-between gap-4">
+  <div class="text-sm text-slate-600">
+    <p class="mb-2">Kata kunci pencarian:</p>
+    <div class="flex flex-wrap gap-2">
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/20">kebijakan MBG</span>
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/20">makan bergizi gratis</span>
+      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/20">program MBG Prabowo</span>
+    </div>
+    <p class="mt-3 text-xs text-slate-500">
+      Maksimal 5 video per kata kunci · 3 halaman komentar per video (≈150 komentar/video + reply).
+      Butuh kuota YouTube Data API v3.
+    </p>
+  </div>
+  <form method="post">
+    <button type="submit" {% if not api_ready %}disabled{% endif %}
+            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
+      {{ icon_svg(IC['tray'], 'h-4 w-4') }} Mulai Crawling
+    </button>
+  </form>
+</div>
+{% if not api_ready %}
+<div class="mt-4 flex items-start gap-2.5 rounded-lg border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+  <span class="mt-0.5 flex-shrink-0">{{ icon_svg(IC['alert'], 'h-4 w-4') }}</span>
+  <span>YOUTUBE_API_KEY belum di-set. Salin <code class="font-mono">.env.example</code> menjadi <code class="font-mono">.env</code> lalu isi API key-nya.</span>
+</div>
+{% endif %}
+{{ card_close() }}
+
+{% if total > 0 %}
+{{ card_open('Pratinjau Data (' ~ total ~ ' komentar)', '10 baris pertama dari file komentar_youtube_mbg.csv') }}
+<div class="overflow-x-auto">
+  <table class="min-w-full divide-y divide-slate-200 text-sm">
+    <thead>
+      <tr class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <th class="px-3 py-2">Komentar</th>
+        <th class="px-3 py-2">Tipe</th>
+        <th class="px-3 py-2 text-right">👍</th>
+        <th class="px-3 py-2">Diunggah</th>
+        {% if 'label' in (preview[0].keys() if preview else []) %}
+        <th class="px-3 py-2">Label</th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for s in preview %}
+      <tr class="hover:bg-slate-50">
+        <td class="max-w-md px-3 py-2.5 text-slate-700">{{ (s.comment_text or '')[:120] }}{% if (s.comment_text or '')|length > 120 %}…{% endif %}</td>
+        <td class="px-3 py-2.5 text-xs text-slate-500">{{ s.type or '-' }}</td>
+        <td class="px-3 py-2.5 text-right tabular-nums text-slate-500">{{ s.like_count or 0 }}</td>
+        <td class="px-3 py-2.5 text-xs text-slate-500">{{ (s.published_at or '')[:10] }}</td>
+        {% if 'label' in s %}
+        <td class="px-3 py-2.5">{{ sent_badge(s.label) }}</td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if total > 20 %}
+<p class="mt-3 text-xs text-slate-400">Menampilkan 20 dari {{ total }} komentar.</p>
+{% endif %}
+{{ card_close() }}
+{% else %}
+{{ card_open('Data') }}
+<p class="text-sm text-slate-500">Belum ada data yang di-crawl. Klik tombol <b>Mulai Crawling</b> di atas,
+atau langsung gunakan <a href="{{ url_for('analyze_url') }}" class="font-semibold text-blue-600 hover:underline">Analisis Video</a>.</p>
+{{ card_close() }}
+{% endif %}
+{% endblock %}

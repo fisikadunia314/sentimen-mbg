@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Laporan PDF — MBG Sentiment{% endblock %}
+{% block page_title %}Laporan PDF{% endblock %}
+
+{% block content %}
+{{ card_open('Identitas Penulis (Cover)', 'Isi sekali — tersimpan otomatis dan muncul di cover laporan PDF berikutnya') }}
+<form method="post" action="{{ url_for('laporan_settings') }}" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+  <div>
+    <label for="nama" class="mb-1.5 block text-sm font-medium text-slate-700">Nama Lengkap <span class="text-red-500">*</span></label>
+    <input type="text" id="nama" name="nama" value="{{ settings.nama or '' }}"
+           placeholder="mis. Budiman"
+           class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+  </div>
+  <div>
+    <label for="nim" class="mb-1.5 block text-sm font-medium text-slate-700">NIM <span class="text-red-500">*</span></label>
+    <input type="text" id="nim" name="nim" value="{{ settings.nim or '' }}"
+           placeholder="mis. 2311011012"
+           class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+  </div>
+  <div>
+    <label for="prodi" class="mb-1.5 block text-sm font-medium text-slate-700">Program Studi <span class="text-xs text-slate-400">(opsional)</span></label>
+    <input type="text" id="prodi" name="prodi" value="{{ settings.prodi or '' }}"
+           placeholder="mis. S1 Teknik Informatika"
+           class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+  </div>
+  <div>
+    <label for="dosen" class="mb-1.5 block text-sm font-medium text-slate-700">Dosen Pengampu <span class="text-xs text-slate-400">(opsional)</span></label>
+    <input type="text" id="dosen" name="dosen" value="{{ settings.dosen or '' }}"
+           placeholder="mis. Dr. Budi Santoso, M.Kom."
+           class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+  </div>
+  <div class="sm:col-span-2">
+    <button type="submit"
+            class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+      {{ icon_svg(IC['check'], 'h-4 w-4') }} Simpan Identitas
+    </button>
+  </div>
+</form>
+{{ card_close() }}
+
+{{ card_open('Buat Laporan', 'Dokumen bergaya makalah (cover, pendahuluan, metodologi, hasil, evaluasi, kesimpulan) dari video yang dianalisis') }}
+<form method="post" class="space-y-4">
+  <div class="rounded-lg border border-blue-100 bg-blue-50/50 p-4">
+    <p class="text-sm text-slate-600">
+      <b>Otomatis:</b> jika kolom URL di bawah <b>kosong</b>, laporan dibuat dari
+      <b>hasil analisis terakhir</b>.
+    </p>
+    {% if last %}
+    <div class="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm">
+      <span class="text-slate-500">Sumber saat ini:</span>
+      <span class="font-semibold text-slate-800">{{ (last.video.title or '-')[:70] }}</span>
+      <span class="text-slate-500">{{ last.total }} teks dianalisis</span>
+      <span class="inline-flex items-center gap-1.5">
+        <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">positif: {{ last.dist_all.get('positif', 0) }}</span>
+        <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">netral: {{ last.dist_all.get('netral', 0) }}</span>
+        <span class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">negatif: {{ last.dist_all.get('negatif', 0) }}</span>
+      </span>
+    </div>
+    {% else %}
+    <div class="mt-3 flex items-start gap-2.5 rounded-lg border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <span class="mt-0.5 flex-shrink-0">{{ icon_svg(IC['alert'], 'h-4 w-4') }}</span>
+      <span>Belum ada hasil analisis. Tempel URL video di bawah (akan dianalisis dulu), atau gunakan menu <a href="{{ url_for('analyze_url') }}" class="font-semibold underline">Analisis Video</a>.</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="border-t border-dashed border-slate-200 pt-4">
+    <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Opsional — video baru (akan dianalisis dulu)</p>
+    <div class="space-y-4">
+      <div>
+        <label for="video_url" class="mb-1.5 block text-sm font-medium text-slate-700">URL Video YouTube</label>
+        <input type="url" id="video_url" name="video_url"
+               placeholder="(kosongkan untuk pakai hasil analisis terakhir) — mis. https://www.youtube.com/watch?v=..."
+               class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+      </div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label for="max_pages" class="mb-1.5 block text-sm font-medium text-slate-700">Maks. Halaman Komentar</label>
+          <select id="max_pages" name="max_pages"
+                  class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+            {% for n in [1, 2, 3, 5, 10, 15, 20] %}
+            <option value="{{ n }}" {% if n == 5 %}selected{% endif %}>{{ n }} halaman</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex items-end">
+          <label class="inline-flex cursor-pointer items-center gap-2.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm">
+            <input type="checkbox" name="include_replies" checked class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+            <span class="text-slate-700">Sertakan reply</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if not has_model %}
+  <div class="flex items-start gap-2.5 rounded-lg border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+    <span class="mt-0.5 flex-shrink-0">{{ icon_svg(IC['alert'], 'h-4 w-4') }}</span>
+    <span>Model belum dilatih — bab <b>Evaluasi Hasil</b> akan berbasis leksikon saja. Jalankan
+      <a href="{{ url_for('training') }}" class="font-semibold underline">Training Model</a> agar laporan memuat metrik Naive Bayes & SVM.</span>
+  </div>
+  {% endif %}
+
+  <button type="submit"
+          class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-700">
+    {{ icon_svg(IC['doc'], 'h-4 w-4') }} Buat & Unduh Laporan PDF
+  </button>
+  <span class="ml-3 text-xs text-slate-400">PDF diunduh langsung oleh browser.</span>
+</form>
+{{ card_close() }}
+
+<div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+  {% if report_exists %}
+  {{ card_open('Laporan Terakhir') }}
+  <p class="mb-3 text-sm text-slate-600">Unduh ulang laporan yang terakhir dibuat:</p>
+  <a href="{{ url_for('laporan_unduh') }}"
+     class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+    {{ icon_svg(IC['tray'], 'h-4 w-4') }} {{ report_name }}
+  </a>
+  {{ card_close() }}
+  {% endif %}
+
+  {{ card_open('Isi Laporan') }}
+  <ol class="space-y-2.5 text-sm text-slate-600">
+    <li class="flex gap-3"><span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">C</span><span><b>Cover</b> — judul, video sumber, tanggal, ringkasan sentimen dominan</span></li>
+    <li class="flex gap-3"><span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">I</span><span><b>Pendahuluan</b> — latar belakang, tujuan, batasan</span></li>
+    <li class="flex gap-3"><span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">II</span><span><b>Metodologi / Cara Kerja</b> — 6 tahap pipeline + tabel teknik (API, Sastrawi, leksikon, TF-IDF, NB/SVM)</span></li>
+    <li class="flex gap-3"><span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">III</span><span><b>Hasil Analisis</b> — data video, tabel & grafik distribusi sentimen, komentar vs reply, sampel komentar</span></li>
+    <li class="flex gap-3"><span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">IV</span><span><b>Evaluasi Hasil</b> — metrik model, confusion matrix, performa per kelas, kesesuaian leksikon-model, interpretasi</span></li>
+    <li class="flex gap-3"><span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">V</span><span><b>Kesimpulan & Saran</b> — dirangkum otomatis dari hasil analisis</span></li>
+  </ol>
+  {{ card_close() }}
+</div>
+{% endblock %}

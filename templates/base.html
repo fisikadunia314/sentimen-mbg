@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}MBG Sentiment — Analisis Komentar YouTube{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.min.css') }}">
+</head>
+<body class="h-full bg-slate-100 font-sans text-slate-800 antialiased">
+
+{# ======================= MACRO & ICON ======================= #}
+{% macro icon_svg(paths, cls="h-5 w-5") -%}
+<svg class="{{ cls }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+  {% for p in paths %}<path stroke-linecap="round" stroke-linejoin="round" d="{{ p }}"/>
+  {% endfor %}
+</svg>
+{%- endmacro %}
+
+{% set IC = {
+  'home': ["M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"],
+  'play': ["M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z", "M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z"],
+  'tray': ["M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"],
+  'tune': ["M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"],
+  'cpu': ["M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v10.5a2.25 2.25 0 0 0 2.25 2.25Zm.75-12h9v9h-9v-9Z"],
+  'chart': ["M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"],
+  'chat': ["M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z"],
+  'menu': ["M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"],
+  'doc': ["M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"],
+  'check': ["M4.5 12.75l6 6 9-13.5"],
+  'alert': ["M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"],
+} %}
+
+{% macro nav_item(endpoint, label, icon, badge=None) %}
+<a href="{{ url_for(endpoint) }}"
+   class="nav-link flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition
+          {% if request.endpoint == endpoint %}bg-blue-600 text-white shadow-md
+          {% else %}text-slate-300 hover:bg-slate-800 hover:text-white{% endif %}">
+  {{ icon_svg(IC[icon], 'h-5 w-5 flex-shrink-0') }}
+  <span class="flex-1">{{ label }}</span>
+  {% if badge %}<span class="rounded-full bg-slate-700 px-2 py-0.5 text-xs text-slate-300">{{ badge }}</span>{% endif %}
+</a>
+{% endmacro %}
+
+{% macro sent_badge(label) %}
+{% if label == 'positif' %}
+<span class="inline-flex items-center whitespace-nowrap rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-600/20">positif</span>
+{% elif label == 'negatif' %}
+<span class="inline-flex items-center whitespace-nowrap rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700 ring-1 ring-inset ring-red-600/20">negatif</span>
+{% else %}
+<span class="inline-flex items-center whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-inset ring-slate-500/20">netral</span>
+{% endif %}
+{% endmacro %}
+
+{% macro stat_card(label, value, icon, color) %}
+<div class="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+  <span class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg {{ color }}">
+    {{ icon_svg(IC[icon], 'h-6 w-6') }}
+  </span>
+  <div class="min-w-0">
+    <div class="truncate text-sm text-slate-500">{{ label }}</div>
+    <div class="truncate text-2xl font-bold text-slate-800">{{ value }}</div>
+  </div>
+</div>
+{% endmacro %}
+
+{# Macro kartu dibuka/tutup terpisah (Jinja 3.x tidak mendukung caller()
+   dari template anak ke macro template induk saat {% extends %}). #}
+{% macro card_open(title=None, subtitle=None, action=None) %}
+<div class="mb-6 rounded-xl border border-slate-200 bg-white shadow-sm">
+  {% if title or action %}
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4">
+    <div>
+      <h3 class="text-base font-semibold text-slate-800">{{ title }}</h3>
+      {% if subtitle %}<p class="mt-0.5 text-sm text-slate-500">{{ subtitle }}</p>{% endif %}
+    </div>
+    {% if action %}{{ action | safe }}{% endif %}
+  </div>
+  {% endif %}
+  <div class="p-5">
+{% endmacro %}
+
+{% macro card_close() %}
+  </div>
+</div>
+{% endmacro %}
+
+{% set current = request.endpoint %}
+
+{# ======================= OVERLAY MOBILE ======================= #}
+<div id="overlay" class="fixed inset-0 z-30 hidden bg-slate-900/60 lg:hidden" onclick="toggleSidebar()"></div>
+
+{# ======================= SIDEBAR ======================= #}
+<aside id="sidebar"
+       class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full transform flex-col bg-slate-900 transition-transform duration-200 ease-in-out lg:translate-x-0">
+  <!-- Brand -->
+  <div class="flex h-16 flex-shrink-0 items-center gap-3 border-b border-slate-800 px-4">
+    <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-red-600 shadow-md">
+      <svg viewBox="0 0 24 24" fill="white" class="h-5 w-5"><path d="M8 5.14v13.72L19 12 8 5.14Z"/></svg>
+    </span>
+    <div class="min-w-0">
+      <div class="truncate text-sm font-bold text-white">Sentimen<span class="text-red-400">YT</span></div>
+      <div class="truncate text-xs text-slate-400">Analisis Komentar MBG</div>
+    </div>
+  </div>
+
+  <!-- Menu -->
+  <nav class="flex-1 overflow-y-auto px-3 py-4">
+    <p class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Utama</p>
+    <div class="space-y-1">
+      {{ nav_item('index', 'Dashboard', 'home') }}
+      {{ nav_item('analyze_url', 'Analisis Video', 'play') }}
+    </div>
+
+    <p class="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Pipeline Data</p>
+    <div class="space-y-1">
+      {{ nav_item('crawl', 'Crawling', 'tray') }}
+      {{ nav_item('preprocessing', 'Preprocessing', 'tune') }}
+      {{ nav_item('training', 'Training Model', 'cpu') }}
+    </div>
+
+    <p class="mb-2 mt-6 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Hasil</p>
+    <div class="space-y-1">
+      {{ nav_item('evaluation', 'Evaluasi', 'chart') }}
+      {{ nav_item('predict', 'Prediksi Komentar', 'chat') }}
+      {{ nav_item('laporan', 'Laporan PDF', 'doc') }}
+    </div>
+  </nav>
+
+  <!-- Footer status -->
+  <div class="flex-shrink-0 border-t border-slate-800 px-4 py-4 text-xs">
+    <div class="flex items-center gap-2 text-slate-400">
+      <span class="h-2 w-2 rounded-full {% if api_ready %}bg-emerald-400{% else %}bg-red-400{% endif %}"></span>
+      YouTube API: {% if api_ready %}Terhubung{% else %}Belum ada key{% endif %}
+    </div>
+    <div class="mt-1.5 flex items-center gap-2 text-slate-400">
+      <span class="h-2 w-2 rounded-full {% if has_model %}bg-emerald-400{% else %}bg-slate-600{% endif %}"></span>
+      Model: {% if has_model %}Terlatih{% else %}Belum dilatih{% endif %}
+    </div>
+    <div class="mt-2 text-slate-600">v2.0 · Flask + Tailwind</div>
+  </div>
+</aside>
+
+{# ======================= KONTEN KANAN ======================= #}
+<div class="flex min-h-screen flex-col lg:pl-64">
+  <!-- Topbar -->
+  <header class="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm lg:px-6">
+    <div class="flex items-center gap-3">
+      <button class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:hidden" onclick="toggleSidebar()" aria-label="Buka menu">
+        {{ icon_svg(IC['menu'], 'h-6 w-6') }}
+      </button>
+      <div>
+        <h1 class="text-lg font-bold text-slate-800">{% block page_title %}Dashboard{% endblock %}</h1>
+        <p class="hidden text-xs text-slate-500 sm:block">Analisis sentimen komentar YouTube — kebijakan MBG</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="hidden items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-600/20 md:inline-flex">
+        {{ icon_svg(IC['play'], 'h-3.5 w-3.5') }} YouTube Data API v3
+      </span>
+      <span class="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white shadow">MBG</span>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="mx-auto w-full max-w-6xl flex-1 p-4 lg:p-6">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% set flash_styles = {
+          'success': 'border-emerald-500 bg-emerald-50 text-emerald-800',
+          'warning': 'border-amber-500 bg-amber-50 text-amber-800',
+          'danger':  'border-red-500 bg-red-50 text-red-800',
+          'info':    'border-blue-500 bg-blue-50 text-blue-800'
+        } %}
+        {% for cat, msg in messages %}
+          <div class="mb-4 flex items-start gap-2.5 rounded-lg border-l-4 px-4 py-3 text-sm {{ flash_styles.get(cat, flash_styles['info']) }}">
+            <span class="mt-0.5 flex-shrink-0">{{ icon_svg(IC['alert'], 'h-4 w-4') }}</span>
+            <span>{{ msg }}</span>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="border-t border-slate-200 bg-white px-4 py-3 text-center text-xs text-slate-400 lg:px-6">
+    SentimenYT v2.0 — Tugas Praktikum Analisis Sentimen · Naïve Bayes, SVM & Leksikon Bahasa Indonesia
+  </footer>
+</div>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('-translate-x-full');
+    document.getElementById('overlay').classList.toggle('hidden');
+  }
+  // Tutup sidebar otomatis di layar kecil setelah memilih menu
+  document.querySelectorAll('#sidebar a.nav-link').forEach(function (a) {
+    a.addEventListener('click', function () {
+      if (window.innerWidth < 1024) toggleSidebar();
+    });
+  });
+</script>
+</body>
+</html>
