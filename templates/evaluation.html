@@ -99,6 +99,45 @@
   {% endfor %}
 </div>
 
+{{ card_open('Perbandingan Semua Model', 'Model yang sudah dilatih, diurutkan dari F1 macro tertinggi') }}
+{% set rows = [] %}
+{% for name, label in [('naive_bayes', 'Naïve Bayes'), ('svm', 'SVM (Linear)'), ('lstm', 'LSTM (BiLSTM)'), ('gru', 'GRU (BiGRU)'), ('bert', 'BERT / IndoBERT')] %}
+  {% if name in metrics %}{% set _ = rows.append((label, metrics[name])) %}{% endif %}
+{% endfor %}
+<div class="overflow-x-auto">
+  <table class="min-w-full divide-y divide-slate-200 text-sm">
+    <thead>
+      <tr class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <th class="px-3 py-2">Model</th>
+        <th class="px-3 py-2">Accuracy</th>
+        <th class="px-3 py-2">Precision</th>
+        <th class="px-3 py-2">Recall</th>
+        <th class="px-3 py-2">F1 Macro</th>
+        <th class="px-3 py-2">Catatan</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for label, m in rows|sort(attribute='1.f1_macro', reverse=True) %}
+      <tr class="hover:bg-slate-50">
+        <td class="px-3 py-2.5 font-medium text-slate-800">{{ label }}</td>
+        <td class="px-3 py-2.5">{{ (m.accuracy * 100)|round(1) }}%</td>
+        <td class="px-3 py-2.5">{{ (m.precision_macro * 100)|round(1) }}%</td>
+        <td class="px-3 py-2.5">{{ (m.recall_macro * 100)|round(1) }}%</td>
+        <td class="px-3 py-2.5 font-semibold text-slate-800">{{ (m.f1_macro * 100)|round(1) }}%</td>
+        <td class="px-3 py-2.5 text-xs text-slate-500">
+          {% if m.base_model %}{{ m.base_model }}{% elif m.epochs_run %}{{ m.epochs_run }} epoch{% else %}TF-IDF{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="mt-3 text-xs text-slate-500">
+  Dataset kecil membuat model transformer mudah overfit — bandingkan hasil ini
+  dengan jumlah data di kartu Informasi Dataset sebelum menarik kesimpulan.
+</p>
+{{ card_close() }}
+
 {{ card_open('Catatan Metodologi') }}
 <ul class="list-disc space-y-1.5 pl-5 text-sm text-slate-600">
   <li>Label ground truth dihasilkan <b>labeling leksikon</b> (skor berbasis leksikon Bahasa Indonesia dengan penanganan negasi, bigram, dan intensifier).</li>

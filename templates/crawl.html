@@ -3,37 +3,238 @@
 {% block page_title %}Crawling Data{% endblock %}
 
 {% block content %}
-{{ card_open('Crawl Dataset MBG', 'Crawl komentar dari beberapa video hasil pencarian kata kunci (dataset utama praktikum)') }}
-<div class="flex flex-wrap items-center justify-between gap-4">
-  <div class="text-sm text-slate-600">
-    <p class="mb-2">Kata kunci pencarian:</p>
-    <div class="flex flex-wrap gap-2">
-      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/20">kebijakan MBG</span>
-      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/20">makan bergizi gratis</span>
-      <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/20">program MBG Prabowo</span>
-    </div>
-    <p class="mt-3 text-xs text-slate-500">
-      Maksimal 5 video per kata kunci · 3 halaman komentar per video (≈150 komentar/video + reply).
-      Butuh kuota YouTube Data API v3.
+{{ card_open('Crawling Data', 'Crawl komentar dari YouTube, Telegram, atau Instagram — kata kunci & sumber bebas, sesuka kamu') }}
+<form method="post" class="space-y-4">
+  <div>
+    <label for="source" class="mb-1.5 block text-sm font-medium text-slate-700">Sumber Data</label>
+    <select id="source" name="source"
+            class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 sm:max-w-xs">
+      <option value="youtube" selected>YouTube (komentar video)</option>
+      <option value="telegram">Telegram (pesan channel publik)</option>
+      <option value="instagram">Instagram (komentar hashtag/profil)</option>
+    </select>
+  </div>
+  <div id="queries-field">
+    <label for="queries" class="mb-1.5 block text-sm font-medium text-slate-700">
+      Kata Kunci Pencarian <span class="text-red-500">*</span>
+    </label>
+    <textarea id="queries" name="queries" rows="4" required
+              placeholder="mis.&#10;kebijakan pemerintah&#10;layanan publik"
+              class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 font-mono text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">{{ queries_value }}</textarea>
+    <p class="mt-1.5 text-xs text-slate-500">
+      Satu kata kunci per baris (pemisah koma <code class="font-mono">,</code> juga boleh).
+      Maksimal 10 kata kunci. {% if last_queries %}Tampilkan kata kunci terakhir yang dipakai.{% else %}Default: kata kunci umum (bisa diubah).{% endif %}
     </p>
   </div>
-  <form method="post">
-    <button type="submit" {% if not api_ready %}disabled{% endif %}
+
+  <!-- Field khusus YouTube -->
+  <div id="yt-fields" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label for="max_videos" class="mb-1.5 block text-sm font-medium text-slate-700">Video per Kata Kunci</label>
+      <select id="max_videos" name="max_videos"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+        {% for n in [1, 2, 3, 5, 7, 10] %}
+        <option value="{{ n }}" {% if n == 5 %}selected{% endif %}>{{ n }} video</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="max_pages" class="mb-1.5 block text-sm font-medium text-slate-700">Maks. Halaman Komentar / Video</label>
+      <select id="max_pages" name="max_pages"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+        {% for n in [1, 2, 3, 5, 10, 15, 20] %}
+        <option value="{{ n }}" {% if n == 3 %}selected{% endif %}>{{ n }} halaman</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <!-- Field khusus Telegram -->
+  <div id="telegram-fields" class="hidden space-y-4 rounded-lg border border-sky-200 bg-sky-50/50 p-4">
+    <div>
+      <label for="tg_channels" class="mb-1.5 block text-sm font-medium text-slate-700">
+        Channel Publik (1 per baris) <span class="text-red-500">*</span>
+      </label>
+      <textarea id="tg_channels" name="tg_channels" rows="3"
+                placeholder="mis.&#10;t.me/medcomnews&#10;@kompascom"
+                class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 font-mono text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"></textarea>
+      <p class="mt-1.5 text-xs text-slate-500">Maksimal 10 channel. Contoh: <code class="font-mono">medcomnews</code>, <code class="font-mono">@kompascom</code>, atau <code class="font-mono">t.me/xxx</code>. Harus channel <b>publik</b> (yang sudah kamu ikuti di aplikasi Telegram).</p>
+    </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div>
+        <label for="tg_max_messages" class="mb-1.5 block text-sm font-medium text-slate-700">Maks. Pesan / Channel</label>
+        <select id="tg_max_messages" name="tg_max_messages"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+          {% for n in [50, 100, 200, 500] %}
+          <option value="{{ n }}" {% if n == 100 %}selected{% endif %}>{{ n }} pesan</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex items-end">
+        <label class="inline-flex cursor-pointer items-center gap-2.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm">
+          <input type="checkbox" name="tg_include_replies" checked class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+          <span class="text-slate-700">Sertakan reply (thread komentar)</span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Field khusus Instagram -->
+  <div id="instagram-fields" class="hidden space-y-4 rounded-lg border border-pink-200 bg-pink-50/50 p-4">
+    <div class="flex items-start gap-2.5 rounded-lg border-l-4 border-pink-500 bg-pink-50 px-4 py-3 text-sm text-pink-800">
+      <span class="mt-0.5 flex-shrink-0">{{ icon_svg(IC['alert'], 'h-4 w-4') }}</span>
+      <span><b>Wajib akun:</b> Instagram menolak akses anonim (login_required).
+      {% if not instagram_creds %}<b>Kredensial belum diisi</b> — crawl akan gagal. Isi <code class="font-mono">INSTAGRAM_USERNAME</code> &amp; <code class="font-mono">INSTAGRAM_PASSWORD</code> (<b>akun kedua</b>, bukan akun utama) di <code class="font-mono">.env</code> lalu restart.{% else %}Login memakai kredensial di <code class="font-mono">.env</code>. Risiko CAPTCHA/blokir tetap ada — pakai volume kecil.{% endif %}
+      Kalau muncul <i>checkpoint/CAPTCHA</i>: selesaikan verifikasi di browser, tunggu 24–72 jam, atau pakai <a href="{{ url_for('import_data') }}" class="font-semibold underline">Impor Data manual</a>.</span>
+    </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div>
+        <label for="ig_mode" class="mb-1.5 block text-sm font-medium text-slate-700">Jenis Pencarian</label>
+        <select id="ig_mode" name="ig_mode"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+          <option value="hashtag" selected>Hashtag (mis. #kebijakan)</option>
+          <option value="profile">Profil (mis. medcomnews)</option>
+        </select>
+      </div>
+      <div>
+        <label for="ig_query" class="mb-1.5 block text-sm font-medium text-slate-700">Hashtag / Nama Profil <span class="text-red-500">*</span></label>
+        <input type="text" id="ig_query" name="ig_query" placeholder="mis. kebijakan atau medcomnews"
+               class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+      </div>
+      <div>
+        <label for="ig_max_posts" class="mb-1.5 block text-sm font-medium text-slate-700">Maks. Post</label>
+        <select id="ig_max_posts" name="ig_max_posts"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+          {% for n in [3, 5, 10, 20] %}
+          <option value="{{ n }}" {% if n == 5 %}selected{% endif %}>{{ n }} post</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="ig_max_comments" class="mb-1.5 block text-sm font-medium text-slate-700">Maks. Komentar / Post</label>
+        <select id="ig_max_comments" name="ig_max_comments"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+          {% for n in [10, 25, 50, 100] %}
+          <option value="{{ n }}" {% if n == 25 %}selected{% endif %}>{{ n }} komentar</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <p class="rounded-lg bg-slate-50 px-3.5 py-2.5 text-xs text-slate-500 ring-1 ring-inset ring-slate-200">
+    <b>YouTube</b> (10.000 unit/hari): 1 pencarian = 100 unit · 1 halaman komentar = 1 unit.<br>
+    <b>Telegram</b> (kuota pribadi, sangat longgar untuk volume ini): 1 channel = 1–2 request.<br>
+    <b>Instagram</b> (bukan API resmi): 1 hashtag/profil + komentar per post — pelan-pelan, risiko CAPTCHA.
+    Crawling ribuan komentar bisa 1–5 menit.
+  </p>
+  <div class="flex items-center gap-3">
+    <button type="submit" id="btn-crawl"
             class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">
       {{ icon_svg(IC['tray'], 'h-4 w-4') }} Mulai Crawling
     </button>
-  </form>
-</div>
+  </div>
+</form>
+
+<script>
+  (function () {
+    var sourceSel = document.getElementById('source');
+    var queriesField = document.getElementById('queries-field');
+    var fields = {
+      youtube: document.getElementById('yt-fields'),
+      telegram: document.getElementById('telegram-fields'),
+      instagram: document.getElementById('instagram-fields')
+    };
+    var btn = document.getElementById('btn-crawl');
+    var ready = {
+      youtube: {{ 'true' if api_ready else 'false' }},
+      telegram: {{ 'true' if telegram_ready else 'false' }},
+      instagram: true
+    };
+    function sync() {
+      var src = sourceSel.value;
+      for (var k in fields) {
+        if (fields[k]) fields[k].classList.toggle('hidden', k !== src);
+      }
+      queriesField.classList.toggle('hidden', src === 'telegram' || src === 'instagram');
+      btn.disabled = !ready[src];
+    }
+    sourceSel.addEventListener('change', sync);
+    sync();
+  })();
+</script>
+
 {% if not api_ready %}
 <div class="mt-4 flex items-start gap-2.5 rounded-lg border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-800">
   <span class="mt-0.5 flex-shrink-0">{{ icon_svg(IC['alert'], 'h-4 w-4') }}</span>
   <span>YOUTUBE_API_KEY belum di-set. Salin <code class="font-mono">.env.example</code> menjadi <code class="font-mono">.env</code> lalu isi API key-nya.</span>
 </div>
 {% endif %}
+{% if not telegram_pkg %}
+<div class="mt-3 flex items-start gap-2.5 rounded-lg border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+  <span class="mt-0.5 flex-shrink-0">{{ icon_svg(IC['alert'], 'h-4 w-4') }}</span>
+  <span><b>Paket <code class="font-mono">telethon</code> belum terinstall.</b> Jalankan di terminal:
+  <code class="font-mono">pip install -r requirements.txt</code> lalu restart aplikasi.</span>
+</div>
+{% elif not telegram_ready %}
+<div class="mt-3 flex items-start gap-2.5 rounded-lg border-l-4 border-sky-400 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+  <span class="mt-0.5 flex-shrink-0">{{ icon_svg(IC['alert'], 'h-4 w-4') }}</span>
+  <span><b>Sumber Telegram belum aktif.</b> (1) Dapatkan <code class="font-mono">api_id</code> &amp; <code class="font-mono">api_hash</code> gratis di
+  <a href="https://my.telegram.org" target="_blank" rel="noopener" class="font-semibold underline">my.telegram.org</a> → isi ke <code class="font-mono">.env</code>,
+  (2) jalankan sekali <code class="font-mono">python setup_telegram.py</code> (login via kode Telegram). Panduan: README bagian <b>"Sumber Data: Telegram"</b>.</span>
+</div>
+{% endif %}
 {{ card_close() }}
 
+{% if videos_total > 0 %}
+{{ card_open('Sumber Data (' ~ videos_total ~ ')', 'Video/post hasil pencarian kata kunci — klik judul atau "Buka" untuk validasi sumbernya') }}
+<div class="overflow-x-auto">
+  <table class="min-w-full divide-y divide-slate-200 text-sm">
+    <thead>
+      <tr class="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <th class="px-3 py-2">#</th>
+        <th class="px-3 py-2">Judul</th>
+        <th class="px-3 py-2">Channel / Sumber</th>
+        <th class="px-3 py-2">Views / Skor</th>
+        <th class="px-3 py-2">Jml. Komentar</th>
+        <th class="px-3 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-slate-100">
+      {% for v in videos_rows %}
+      <tr class="hover:bg-slate-50">
+        <td class="whitespace-nowrap px-3 py-2.5 text-slate-400">{{ loop.index }}</td>
+        <td class="px-3 py-2.5">
+          {% if v.url %}
+          <a href="{{ v.url }}" target="_blank" rel="noopener" class="font-medium text-blue-700 hover:underline">{{ v.title or '(tanpa judul)' }}</a>
+          {% else %}
+          <span class="text-slate-600">{{ v.title or '-' }}</span>
+          {% endif %}
+        </td>
+        <td class="whitespace-nowrap px-3 py-2.5 text-slate-600">{{ v.channel or '-' }}</td>
+        <td class="whitespace-nowrap px-3 py-2.5 text-slate-600">{{ v.view_count }}</td>
+        <td class="whitespace-nowrap px-3 py-2.5 text-slate-600">{{ v.comment_count }}</td>
+        <td class="whitespace-nowrap px-3 py-2.5">
+          {% if v.url %}
+          <a href="{{ v.url }}" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-600/20 hover:bg-blue-100">
+            {{ icon_svg(IC['extlink'], 'h-3.5 w-3.5') }} Buka
+          </a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="mt-3 text-xs text-slate-500">
+  Maksimal 100 video ditampilkan. Daftar lengkap tersimpan di <code class="font-mono">data/video_sumber.csv</code> (kolom <code class="font-mono">url</code>).
+</p>
+{{ card_close() }}
+{% endif %}
+
 {% if total > 0 %}
-{{ card_open('Pratinjau Data (' ~ total ~ ' komentar)', '10 baris pertama dari file komentar_youtube_mbg.csv') }}
+{{ card_open('Pratinjau Data (' ~ total ~ ' komentar)', '20 baris pertama dari file komentar_media.csv') }}
 <div class="overflow-x-auto">
   <table class="min-w-full divide-y divide-slate-200 text-sm">
     <thead>

@@ -8,6 +8,7 @@ Penambahan:
 """
 import os
 import re
+import socket
 import time
 import threading
 import pandas as pd
@@ -18,14 +19,70 @@ from googleapiclient.errors import HttpError
 
 _RETRYABLE_STATUS = {408, 429, 500, 502, 503, 504}
 
+# Error JARINGAN (bukan HTTP error): Windows WinError 10060/10054/10051,
+# macOS/Linux ConnectionResetError, DNS gagal, SSL timeout, dsb.
+NETWORK_ERRORS = (OSError, socket.timeout, TimeoutError, ConnectionError,
+                  socket.gaierror)
+
+REQUEST_TIMEOUT = int(os.getenv("HTTP_TIMEOUT", "60"))   # detik per request
+NET_RETRIES = int(os.getenv("NET_RETRIES", "3"))         # percobaan ulang
+
+
+class CrawlNetworkError(RuntimeError):
+    """Gagal menghubungi server Google/YouTube (masalah jaringan, bukan kode)."""
+
+
+def friendly_network_message(e, host: str = "youtube.googleapis.com") -> str:
+    """Terjemahkan error jaringan mentah menjadi instruksi yang bisa dilakukan."""
+    raw = str(e)
+    low = raw.lower()
+    if "10060" in raw or "timed out" in low or "timeout" in low:
+        cause = "koneksi ke server YouTube/Google kehabisan waktu (timeout)"
+    elif "10054" in raw or "10051" in raw or "reset" in low or "aborted" in low:
+        cause = "koneksi diputus di tengah jalan oleh jaringan/firewall"
+    elif "getaddrinfo" in low or "name or service" in low or "11001" in raw:
+        cause = "nama domain tidak bisa diterjemahkan (masalah DNS)"
+    elif "ssl" in low or "certificate" in low:
+        cause = "koneksi aman (SSL) ditolak — biasanya karena proxy/VPN/firewall kantor"
+    else:
+        cause = "server tidak bisa dihubungi"
+    return (
+        f"Gagal menghubungi {host}: {cause}.\n"
+        "Ini masalah JARINGAN di komputer/ISP kamu, bukan kesalahan data. "
+        "Coba berurutan:\n"
+        "  1) Pastikan internet jalan — buka https://www.youtube.com di browser.\n"
+        "  2) Matikan VPN/proxy/DNS-pribadi sementara, lalu ulangi.\n"
+        "  3) Ganti DNS ke 8.8.8.8 / 1.1.1.1 (kadang ISP memblokir googleapis.com).\n"
+        "  4) Kalau di kantor/kampus: jaringan mereka mungkin memblokir API Google.\n"
+        "  5) Pakai jaringan lain (mis. hotspot HP) untuk mengujinya.\n"
+        f"Detail teknis: {raw}"
+    )
+
 # Klien API terpisah per thread (klien googleapiclient tidak thread-safe)
 _tls = threading.local()
+
+
+def _http_client():
+    """httplib2 client dengan TIMEOUT + dukungan proxy dari variabel lingkungan.
+
+    Tanpa timeout eksplisit, request bisa menggantung sangat lama; dengan
+    proxy (HTTPS_PROXY/HTTP_PROXY) aplikasi tetap jalan di jaringan kantor.
+    """
+    import httplib2
+    proxy_info = None
+    try:
+        proxy_info = httplib2.proxy_info_from_environment()
+    except Exception:
+        proxy_info = None
+    if proxy_info:
+        return httplib2.Http(timeout=REQUEST_TIMEOUT, proxy_info=proxy_info)
+    return httplib2.Http(timeout=REQUEST_TIMEOUT)
 
 
 def _thread_client(api_key: str):
     client = getattr(_tls, "client", None)
     if client is None:
-        client = build("youtube", "v3", developerKey=api_key)
+        client = build("youtube", "v3", developerKey=api_key, http=_http_client())
         _tls.client = client
     return client
 
@@ -41,11 +98,21 @@ def _to_int(value) -> int:
 
 
 def build_youtube_client(api_key: str):
-    return build("youtube", "v3", developerKey=api_key)
+    return build("youtube", "v3", developerKey=api_key, http=_http_client())
 
 
-def _execute_with_retry(request_obj, retries: int = 2, backoff: float = 2.0):
-    """Eksekusi request dengan retry untuk error sementara (5xx/429)."""
+def _execute_with_retry(request_obj, retries: int = None, backoff: float = 2.0):
+    """Eksekusi request dengan retry untuk error sementara.
+
+    Ditangani:
+      * HTTP 5xx / 429  -> dicoba ulang (server sibuk)
+      * Error JARINGAN  -> dicoba ulang (WinError 10060, connection reset, DNS)
+    Setelah semua percobaan habis, error jaringan diubah menjadi
+    CrawlNetworkError dengan pesan yang bisa ditindaklanjuti pengguna.
+    """
+    if retries is None:
+        retries = NET_RETRIES
+    last_net_error = None
     for attempt in range(retries + 1):
         try:
             return request_obj.execute()
@@ -55,6 +122,15 @@ def _execute_with_retry(request_obj, retries: int = 2, backoff: float = 2.0):
                 time.sleep(backoff * (attempt + 1))
                 continue
             raise
+        except NETWORK_ERRORS as e:
+            # Error jaringan: jeda makin lama, lalu coba lagi
+            last_net_error = e
+            if attempt < retries:
+                time.sleep(backoff * (2 ** attempt))   # 2s, 4s, 8s
+                continue
+            raise CrawlNetworkError(friendly_network_message(e)) from e
+    if last_net_error is not None:
+        raise CrawlNetworkError(friendly_network_message(last_net_error))
 
 
 # ==================== EKSTRAK VIDEO ID ====================
@@ -201,7 +277,16 @@ def get_comments_with_replies(youtube, video_id: str, max_pages: int = 3,
             if not next_page_token:
                 break
     except HttpError as e:
+        # Kuota habis / video menonaktifkan komentar -> hentikan, pakai yang sudah ada
         print(f"[WARN] get_comments_with_replies {video_id}: {e}")
+        if not all_comments and e.resp is not None and e.resp.status in (403, 404):
+            raise
+    except NETWORK_ERRORS as e:
+        # Jaringan putus di tengah pengambilan ribuan komentar:
+        # JANGAN buang hasil yang sudah didapat.
+        if not all_comments:
+            raise CrawlNetworkError(friendly_network_message(e)) from e
+        print(f"[WARN] jaringan terputus setelah {len(all_comments)} komentar: {e}")
 
     # ===== Fetch reply PARALEL =====
     if include_replies and parent_ids and api_key:
@@ -291,9 +376,9 @@ def search_videos(youtube, query: str, max_results: int = 5):
     return videos
 
 
-def crawl_mbg_data(api_key: str, queries: list, max_videos: int,
+def crawl_search_data(api_key: str, queries: list, max_videos: int,
                    max_pages: int, videos_csv: str, comments_csv: str):
-    """Pipeline crawling berdasarkan kata kunci (dataset utama MBG)."""
+    """Pipeline crawling berdasarkan kata kunci pencarian YouTube."""
     if not api_key:
         raise ValueError("YOUTUBE_API_KEY belum di-set. Salin .env.example menjadi .env lalu isi API key-nya.")
 

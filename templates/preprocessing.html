@@ -4,9 +4,76 @@
 
 {% block content %}
 {{ card_open('Preprocessing & Labeling', 'Bersihkan dan normalisasi teks, lalu beri label sentimen dengan leksikon Bahasa Indonesia') }}
+{{ card_open('Pilih Dataset Sumber', 'Data mana yang mau diproses? Bisa gabung beberapa dataset sekaligus') }}
+{% if datasets %}
+<form method="post" class="space-y-3">
+  <input type="hidden" name="step" value="pilih">
+  <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    {% for d in datasets %}
+    <label class="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-300 bg-white p-3 text-sm shadow-sm hover:border-blue-400">
+      <input type="checkbox" name="dataset_ids" value="{{ d.id }}"
+             class="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+      <span class="min-w-0">
+        <b class="block truncate text-slate-800">{{ d.name }}</b>
+        <span class="text-xs text-slate-500">{{ d.source_label }} · {{ '{:,}'.format(d.comments) }} komentar · {{ d.created_at }}</span>
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+  <div class="flex flex-wrap items-center gap-3">
+    <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm">
+      <input type="checkbox" name="use_all" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+      <span class="text-slate-700">Gabung <b>semua</b> dataset</span>
+    </label>
+    <button type="submit"
+            class="inline-flex items-center gap-2 rounded-lg bg-slate-800 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-slate-900">
+      Pakai Dataset Ini
+    </button>
+    <a href="{{ url_for('dataset_manager') }}" class="text-sm font-semibold text-blue-600 hover:underline">
+      Kelola / hapus dataset →
+    </a>
+  </div>
+</form>
+{% else %}
+<p class="text-sm text-slate-500">
+  Belum ada dataset tersimpan. Kumpulkan data dulu lewat
+  <a href="{{ url_for('analyze_url') }}" class="font-semibold text-blue-600 hover:underline">Analisis Video</a>,
+  <a href="{{ url_for('crawl') }}" class="font-semibold text-blue-600 hover:underline">Crawling</a>,
+  <a href="{{ url_for('koleksi') }}" class="font-semibold text-blue-600 hover:underline">Data Koleksi</a>, atau
+  <a href="{{ url_for('import_data') }}" class="font-semibold text-blue-600 hover:underline">Impor Data</a>.
+  {% if total %}Data aktif saat ini: <b>{{ total }}</b> komentar.{% endif %}
+</p>
+{% endif %}
+{{ card_close() }}
+
+<form method="post" class="mb-4 flex flex-wrap items-end gap-3">
+  <div>
+    <label for="bahasa" class="mb-1.5 block text-sm font-medium text-slate-700">Bahasa</label>
+    <select id="bahasa" name="bahasa"
+            class="rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+      <option value="id" {% if lang != 'en' %}selected{% endif %}>Bahasa Indonesia (Sastrawi)</option>
+      <option value="en" {% if lang == 'en' %}selected{% endif %}>English (tanpa stemming)</option>
+      <option value="mix" {% if lang == 'mix' %}selected{% endif %}>Campuran — deteksi bahasa otomatis per komentar</option>
+    </select>
+  </div>
+  <input type="hidden" name="sarcasm_form" value="1">
+  <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm">
+    <input type="checkbox" name="handle_sarcasm" value="1" checked class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+    <span class="text-slate-700">Tangani <b>sarkasme</b> (balik polaritas)</span>
+  </label>
+  <button type="submit"
+          class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-700">
+    Jalankan Preprocessing
+  </button>
+</form>
+<p class="mb-4 text-xs text-slate-500">
+  Deteksi sarkasme berbasis petunjuk (mis. "mantap betul… sampai rakyat makin susah",
+  "katanya gratis", emoji 🙃, pujian dalam tanda kutip). Bila terdeteksi, label
+  leksikon dibalik dan skor aslinya tetap disimpan untuk diaudit.
+</p>
 <!-- Pipeline visual -->
 <div class="mb-5 flex flex-wrap items-center gap-2 text-xs font-medium">
-  {% for step in ['Cleaning', 'Normalisasi Alay', 'Stopword (negasi dipertahankan)', 'Stemming Sastrawi', 'Labeling Leksikon'] %}
+  {% for step in ['Case Folding', 'Cleaning (URL/HTML/emoji/angka)', 'Normalisasi Alay', 'Tokenisasi', 'Stopword (negasi dipertahankan)', 'Stemming Sastrawi', 'Labeling Leksikon'] %}
   <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-slate-600 ring-1 ring-inset ring-slate-500/20">
     <span class="flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[10px] font-bold text-white">{{ loop.index }}</span>
     {{ step }}
@@ -43,6 +110,68 @@
   {% endif %}
 {% endif %}
 
+{{ card_open('Kualitas Hasil Preprocessing', 'Periksa apakah masih ada kata yang tidak layak') }}
+{% if has_proc and top_tokens %}
+<div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+  <div class="rounded-lg bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+    <div class="text-xs text-slate-500">Dokumen</div>
+    <div class="text-lg font-bold text-slate-800">{{ '{:,}'.format(quality.documents) }}</div>
+  </div>
+  <div class="rounded-lg bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+    <div class="text-xs text-slate-500">Rata-rata token</div>
+    <div class="text-lg font-bold text-slate-800">{{ quality.avg_tokens }}</div>
+  </div>
+  <div class="rounded-lg bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+    <div class="text-xs text-slate-500">Token unik</div>
+    <div class="text-lg font-bold text-slate-800">{{ '{:,}'.format(quality.unique_tokens) }}</div>
+  </div>
+  <div class="rounded-lg bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+    <div class="text-xs text-slate-500">Token terpanjang</div>
+    <div class="text-lg font-bold text-slate-800">{{ quality.max_tokens }}</div>
+  </div>
+</div>
+{% if quality.lang_dist %}
+<div class="mb-4 flex flex-wrap items-center gap-2 text-xs">
+  <span class="font-medium text-slate-600">Bahasa terdeteksi:</span>
+  {% for lg, n in quality.lang_dist.items() %}
+  <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700 ring-1 ring-inset ring-slate-300">
+    {{ 'Indonesia' if lg == 'id' else 'English' }}<span class="font-bold text-slate-500">{{ n }}</span>
+  </span>
+  {% endfor %}
+</div>
+{% endif %}
+{% if quality.sarkasme %}
+<div class="mb-4 rounded-lg border-l-4 border-amber-400 bg-amber-50 px-4 py-3">
+  <div class="text-sm font-semibold text-amber-800">
+    {{ quality.sarkasme }} komentar terdeteksi SARKASME — polaritas dibalik
+  </div>
+  {% if quality.sarkasme_contoh %}
+  <ul class="mt-2 space-y-1 text-xs text-amber-700">
+    {% for s in quality.sarkasme_contoh %}
+    <li>“{{ s.text }}” — leksikon <b>{{ s.leksikon }}</b> → final <b>{{ s.final }}</b> ({{ s.label }})</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endif %}
+<p class="mb-2 text-sm font-medium text-slate-700">30 kata paling sering (setelah stemming)</p>
+<div class="flex flex-wrap gap-1.5">
+  {% for tok, n in top_tokens %}
+  <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs text-blue-800 ring-1 ring-inset ring-blue-200">
+    {{ tok }}<span class="font-semibold text-blue-500">{{ n }}</span>
+  </span>
+  {% endfor %}
+</div>
+<p class="mt-3 text-xs text-slate-500">
+  Kalau masih ada kata sampah di daftar ini, tambahkan ke
+  <code class="font-mono">data/stopwords_custom.txt</code> (satu kata per baris)
+  lalu jalankan ulang preprocessing.
+</p>
+{% else %}
+<p class="text-sm text-slate-500">Belum ada hasil. Klik <b>Jalankan Preprocessing</b> terlebih dahulu.</p>
+{% endif %}
+{{ card_close() }}
+
 {{ card_open('Pratinjau Data (' ~ total ~ ' komentar)', 'Kolom hasil pipeline preprocessing') }}
 <div class="overflow-x-auto">
   <table class="min-w-full divide-y divide-slate-200 text-sm">
@@ -51,7 +180,8 @@
         <th class="px-3 py-2">Teks Asli</th>
         <th class="px-3 py-2">Bersih</th>
         <th class="px-3 py-2">Stem</th>
-        {% if has_proc %}<th class="px-3 py-2">Label</th>{% endif %}
+        {% if has_proc %}<th class="px-3 py-2">Label</th>
+        <th class="px-3 py-2">Sarkasme</th>{% endif %}
       </tr>
     </thead>
     <tbody class="divide-y divide-slate-100">
@@ -62,6 +192,10 @@
         <td class="max-w-xs px-3 py-2.5 font-mono text-xs text-slate-500">{% if s.stemmed is defined %}{{ s.stemmed[:80] }}{% else %}—{% endif %}</td>
         {% if has_proc %}
         <td class="px-3 py-2.5">{{ sent_badge(s.label) if s.label is defined else '—' }}</td>
+        <td class="px-3 py-2.5">
+          {% if s.sarkasme %}<span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700" title="{{ s.sarkasme_petunjuk }}">sarkasme</span>
+          {% else %}<span class="text-xs text-slate-300">—</span>{% endif %}
+        </td>
         {% endif %}
       </tr>
       {% endfor %}

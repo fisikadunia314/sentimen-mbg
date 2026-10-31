@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Prediksi Komentar — MBG Sentiment{% endblock %}
+{% block title %}Prediksi Komentar — SentimenKu{% endblock %}
 {% block page_title %}Prediksi Komentar{% endblock %}
 
 {% block content %}
@@ -9,7 +9,7 @@
   <div>
     <label for="komentar" class="mb-1.5 block text-sm font-medium text-slate-700">Teks Komentar</label>
     <textarea id="komentar" name="komentar" rows="4" required maxlength="2000"
-              placeholder="Contoh: Program MBG sangat membantu anak sekolah, semoga terus dilanjutkan…"
+              placeholder="Contoh: Program ini sangat membantu warga, semoga terus dilanjutkan…"
               class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">{{ result.text if result else '' }}</textarea>
     <p class="mt-1 text-xs text-slate-400">Maks. 2000 karakter.</p>
   </div>
@@ -37,6 +37,35 @@
   </div>
 </div>
 
+{% if result.sarkasme is defined and result.sarkasme %}
+{% if result.sarkasme.sarkasme %}
+<div class="mb-4 rounded-lg border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+  <b>⚠ Terdeteksi SARKASME</b> (skor petunjuk {{ result.sarkasme.skor }}).
+  Komentar seperti ini biasanya bermakna <b>kebalikan</b> dari kata-katanya — label
+  leksikon sebaiknya dibalik.
+  {% if result.sarkasme.petunjuk %}
+  <div class="mt-1.5 text-xs text-amber-700">Petunjuk: {{ result.sarkasme.petunjuk|join(', ') }}</div>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+{# === Model tambahan: LSTM / GRU / BERT === #}
+{% if result.get('extra') %}
+<h4 class="mb-2 mt-6 text-sm font-semibold text-slate-700">Model Deep Learning / Transformer</h4>
+<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+  {% for name, info in result.get('extra').items() %}
+  <div class="rounded-xl border border-slate-200 p-4 text-center">
+    <div class="mb-2 text-sm font-semibold text-slate-500">{{ name }}</div>
+    <div class="flex justify-center">{{ sent_badge(info.label) }}</div>
+    <div class="mt-1.5 text-xs text-slate-400">keyakinan {{ (info.confidence * 100)|round(1) }}%</div>
+    {% if info.lang %}<div class="mt-1 text-xs text-slate-400">model: {{ 'IndoBERT' if info.lang == 'id' else 'BERT' }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if result.naive_bayes is defined %}
 {% set setuju = (result.naive_bayes == result.svm) and (result.lexicon == result.naive_bayes) %}
 <p class="mt-4 text-sm {% if setuju %}text-emerald-600{% else %}text-amber-600{% endif %}">
   {% if setuju %}
@@ -45,6 +74,7 @@
   ⚠ Metode menghasilkan label berbeda — pertimbangkan validasi manual (komentar berada di batas keputusan).
   {% endif %}
 </p>
+{% endif %}
 
 <h4 class="mb-2 mt-6 text-sm font-semibold text-slate-700">Pipeline Preprocessing</h4>
 <ol class="space-y-2 text-sm">

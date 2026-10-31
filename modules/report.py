@@ -145,7 +145,7 @@ def build_report_pdf(out_path: str, video: dict, analysis: dict,
         out_path, pagesize=A4,
         leftMargin=2 * cm, rightMargin=2 * cm,
         topMargin=1.8 * cm, bottomMargin=1.8 * cm,
-        title="Laporan Analisis Sentimen", author=nama or "SentimenYT",
+        title="Laporan Analisis Sentimen", author=nama or "SentimenKu",
     )
     E = []  # elements
 
@@ -164,7 +164,7 @@ def build_report_pdf(out_path: str, video: dict, analysis: dict,
     E.append(Paragraph("LAPORAN HASIL ANALISIS SENTIMEN", ST["cover_title"]))
     E.append(HRFlowable(width="60%", thickness=1.2, color=colors.HexColor("#1e3a8a"),
                         spaceAfter=10, spaceBefore=4))
-    E.append(Paragraph("Komentar YouTube terhadap Kebijakan MBG<br/>(Makan Bergizi Gratis)", ST["cover_sub"]))
+    E.append(Paragraph("Hasil Analisis Sentimen terhadap Komentar<br/>Media Sosial", ST["cover_sub"]))
     E.append(Spacer(1, 1.6 * cm))
     cover_tbl = [
         ["Video", _t(video.get("title", "-"))],
@@ -197,7 +197,7 @@ def build_report_pdf(out_path: str, video: dict, analysis: dict,
         if dosen:
             E.append(Paragraph("Dosen Pengampu: " + _t(dosen), ST["small_c"]))
     E.append(Spacer(1, 1.2 * cm))
-    E.append(Paragraph("Dibuat otomatis oleh aplikasi SentimenYT", ST["small"]))
+    E.append(Paragraph("Dibuat otomatis oleh aplikasi SentimenKu", ST["small"]))
     E.append(Paragraph("Flask + Naive Bayes + SVM + Leksikon Bahasa Indonesia", ST["small"]))
     E.append(PageBreak())
 
@@ -205,12 +205,12 @@ def build_report_pdf(out_path: str, video: dict, analysis: dict,
     E.append(Paragraph("BAB I&nbsp;&nbsp;PENDAHULUAN", ST["bab"]))
     E.append(Paragraph("1.1 Latar Belakang", ST["sub"]))
     E.append(Paragraph(
-        "Program Makan Bergizi Gratis (MBG) merupakan kebijakan pemerintah yang menjadi "
-        "perhatian luas masyarakat. Pembahasan publik terhadap kebijakan ini banyak terjadi di "
-        "platform media sosial, termasuk kolom komentar YouTube, yang mencerminkan berbagai "
-        "persepsi: dukungan, kritik, hingga pernyataan netral. Karena volume komentar dapat "
-        "sangat besar, diperlukan pendekatan komputasional untuk mengukur arah sentimen "
-        "secara objektif, konsisten, dan dapat diulang.", ST["body"]))
+        "Sebuah kebijakan atau isu publik kerap menjadi perhatian luas masyarakat. Pembahasan "
+        "terhadapnya banyak terjadi di platform media sosial — kolom komentar YouTube, pesan "
+        "channel Telegram, hingga komentar Instagram — yang mencerminkan berbagai persepsi: "
+        "dukungan, kritik, hingga pernyataan netral. Karena volume komentar dapat sangat "
+        "besar, diperlukan pendekatan komputasional untuk mengukur arah sentimen secara "
+        "objektif, konsisten, dan dapat diulang.", ST["body"]))
     E.append(Paragraph("1.2 Tujuan", ST["sub"]))
     for b in [
         "Mengukur distribusi sentimen (positif, netral, negatif) pada komentar video YouTube yang dianalisis.",

@@ -13,7 +13,7 @@
     <h2 class="mt-4 text-lg font-semibold text-slate-800">Belum ada data komentar</h2>
     <p class="mt-1 max-w-md text-sm text-slate-500">
       Mulai dengan menganalisis satu video YouTube, atau crawl komentar dari beberapa video
-      tentang kebijakan MBG.
+      dari media sosial (YouTube, Telegram, Instagram).
     </p>
     <div class="mt-6 flex flex-wrap justify-center gap-3">
       <a href="{{ url_for('analyze_url') }}"
@@ -22,7 +22,7 @@
       </a>
       <a href="{{ url_for('crawl') }}"
          class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-        {{ icon_svg(IC['tray'], 'h-4 w-4') }} Crawl Dataset MBG
+        {{ icon_svg(IC['tray'], 'h-4 w-4') }} Crawl Dataset
       </a>
     </div>
     {% if not api_ready %}

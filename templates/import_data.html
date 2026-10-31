@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block page_title %}Impor Data Manual{% endblock %}
+
+{% block content %}
+{{ card_open('Impor Data Manual', 'Tempel komentar (1 per baris) atau unggah CSV — hasilnya masuk pipeline yang sama') }}
+<div class="mb-4 flex items-start gap-2.5 rounded-lg border-l-4 border-blue-400 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+  <span class="mt-0.5 flex-shrink-0">{{ icon_svg(IC['alert'], 'h-4 w-4') }}</span>
+  <span>
+    <b>Kapan pakai ini?</b> Kalau crawling otomatis diblokir platform (mis. Instagram
+    <i>checkpoint</i>, atau Telegram/YouTube kuota habis). Kamu ambil komentar secara manual,
+    tempel di sini, dan seluruh pipeline (preprocessing → training → laporan) tetap jalan.
+  </span>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="space-y-4">
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label for="source_label" class="mb-1.5 block text-sm font-medium text-slate-700">Nama Sumber <span class="text-red-500">*</span></label>
+      <input type="text" id="source_label" name="source_label" required
+             placeholder="mis. Instagram @medcomnews"
+             class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+      <p class="mt-1.5 text-xs text-slate-500">Muncul sebagai judul sumber di tabel &amp; laporan.</p>
+    </div>
+    <div>
+      <label for="source_url" class="mb-1.5 block text-sm font-medium text-slate-700">URL Post/Video (opsional)</label>
+      <input type="url" id="source_url" name="source_url"
+             placeholder="https://www.instagram.com/p/xxxxx/"
+             class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+      <p class="mt-1.5 text-xs text-slate-500">Disimpan supaya data bisa diverifikasi.</p>
+    </div>
+  </div>
+
+  <div>
+    <label for="pasted_text" class="mb-1.5 block text-sm font-medium text-slate-700">Tempel Komentar</label>
+    <textarea id="pasted_text" name="pasted_text" rows="8"
+              placeholder="satu komentar per baris, mis.&#10;program ini sangat membantu&#10;tidak setuju, mubazir anggaran&#10;semoga terus dilanjutkan"
+              class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"></textarea>
+    <p class="mt-1.5 text-xs text-slate-500">1 komentar per baris. Baris kosong &amp; duplikat otomatis dibuang.</p>
+  </div>
+
+  <div>
+    <label for="csv_file" class="mb-1.5 block text-sm font-medium text-slate-700">atau Unggah CSV <span class="font-normal text-slate-400">(opsional)</span></label>
+    <input type="file" id="csv_file" name="csv_file" accept=".csv,.txt"
+           class="block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm file:mr-3 file:rounded-md file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-slate-700 hover:file:bg-slate-200">
+    <p class="mt-1.5 text-xs text-slate-500">
+      Berisi kolom bernama <code class="font-mono">comment_text</code> / <code class="font-mono">komentar</code> / <code class="font-mono">text</code>.
+      Satu kolom saja juga boleh. Kalau keduanya diisi, CSV yang dipakai.
+    </p>
+  </div>
+
+  <label class="inline-flex cursor-pointer items-center gap-2.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm">
+    <input type="checkbox" name="append_mode" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+    <span class="text-slate-700">Tambahkan ke data yang sudah ada (jangan ganti)</span>
+  </label>
+
+  <div class="flex flex-wrap gap-2 pt-1">
+    <button type="submit"
+            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40">
+      {{ icon_svg(IC['tray'], 'h-4 w-4') }} Impor Sekarang
+    </button>
+    <a href="{{ url_for('crawl') }}"
+       class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">
+      Kembali ke Crawling
+    </a>
+  </div>
+</form>
+{{ card_close() }}
+
+{{ card_open('Cara Mengambil Komentar Manual (Instagram)', 'Tidak perlu tools tambahan — cukup browser') }}
+<ol class="list-decimal space-y-2 pl-5 text-sm text-slate-600">
+  <li>Buka post Instagram di <b>browser</b> (laptop), login dengan akun kedua.</li>
+  <li>Klik <b>"Lihat semua komentar"</b>, gulir sampai jumlah yang kamu butuhkan (±25–100 komentar).</li>
+  <li>Blok semua komentar → <b>Copy</b> → tempel di kotak "Tempel Komentar" di atas.</li>
+  <li>Rapikan seperlunya (buang baris username/timestamp yang ikut ter-copy atau biarkan —
+      baris yang tidak relevan bisa kamu hapus dengan mudah di form).</li>
+  <li>Klik <b>Impor Sekarang</b> → lanjut ke menu <b>Preprocessing</b>.</li>
+</ol>
+<p class="mt-3 text-xs text-slate-500">
+  Cara ini <b>legal dan aman</b> (kamu membaca halaman publik sebagai pengguna biasa, bukan scraping otomatis),
+  dan hasilnya tetap bisa dipakai untuk analisis sentimen dalam tugas.
+</p>
+{{ card_close() }}
+{% endblock %}

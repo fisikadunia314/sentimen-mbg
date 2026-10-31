@@ -22,6 +22,8 @@ POSITIVE_WORDS = {
     "terbaik", "solusi", "puas", "terpuji", "membanggakan", "jaya", "berkah",
     "syukur", "lega", "bangga", "terimakasih", "menyenangkan",
     "mengharukan", "menginspirasi", "menghargai",
+    "memuaskan", "ramah", "profesional", "bersih", "nyaman", "tanggap",
+    "sigap", "transparan", "adil", "merata", "terjangkau", "berkualitas",
 }
 
 NEGATIVE_WORDS = {
@@ -37,6 +39,8 @@ NEGATIVE_WORDS = {
     "menjelekkan", "menjatuhkan", "menghancurkan", "menghambat", "menghina",
     "mengejek", "memfitnah", "memuakkan", "mempertanyakan",
     "ragu", "dipertanyakan",
+    "antri", "mengantri", "ngantri", "menunggu", "nunggu", "telat", "terlambat",
+    "molor", "ribet", "berbelit", "bobrok", "sewenang", "pungli", "boros",
 }
 
 # Bigram dihitung satu kali (hindari double-count, mis. "luar" + "biasa").
@@ -64,11 +68,20 @@ del _w, _b
 
 
 def _negated(tokens: list, i: int) -> bool:
-    """Jumlah kata negasi dalam 3 token sebelum indeks i (ganjil = negatif)."""
+    """Apakah token ke-i ternegasi.
+
+    Negasi hanya "merambat" maksimal 2 token ke belakang DAN berhenti bila
+    melewati kata bermuatan sentimen lain. Tanpa aturan berhenti ini,
+    "tidak setuju, mubazir uang negara" akan dihitung 0 (seharusnya -2)
+    karena "tidak" ikut menegasi "mubazir".
+    """
     count = 0
-    for j in range(max(0, i - 3), i):
-        if tokens[j] in NEGATION_WORDS:
+    for j in range(i - 1, max(-1, i - 3), -1):
+        tok = tokens[j]
+        if tok in NEGATION_WORDS:
             count += 1
+        elif tok in _WORD_WEIGHT:
+            break          # sentimen lain -> negasi tidak merambat melewatinya
     return count % 2 == 1
 
 

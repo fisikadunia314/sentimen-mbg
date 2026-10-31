@@ -1,0 +1,18 @@
+# Render Blueprint — satu klik deploy dari dashboard Render:
+# https://render.com  ->  New  ->  Blueprint  ->  pilih repo ini
+services:
+  - type: web
+    name: sentimenu
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 1 --timeout 300
+    healthCheckPath: /
+    envVars:
+      - key: FLASK_DEBUG
+        value: "0"
+      # Isi nilainya di dashboard Render (panel Environment) — JANGAN ditulis di repo:
+      - key: YOUTUBE_API_KEY
+        sync: false
+      - key: SECRET_KEY
+        sync: false

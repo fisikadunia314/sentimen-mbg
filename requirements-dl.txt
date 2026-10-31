@@ -1,0 +1,10 @@
+# ===== Paket OPSIONAL untuk LSTM / GRU / BERT =====
+# Install hanya jika ingin memakai model deep learning:
+#     pip install -r requirements-dl.txt
+# Aplikasi tetap jalan tanpa file ini (Naive Bayes + SVM).
+#
+# PyTorch versi CPU (tidak butuh GPU). Untuk CUDA, ikuti petunjuk di pytorch.org.
+torch>=2.0
+transformers>=4.36
+sentencepiece>=0.1.99
+huggingface-hub>=0.20

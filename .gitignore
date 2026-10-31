@@ -9,7 +9,8 @@ venv/
 .env
 
 # Data, model, dan artefak hasil generate (dibuat saat aplikasi berjalan)
-data/*
+data/
+data/datasets/*
 models/*
 static/charts/*.png
 !data/.gitkeep

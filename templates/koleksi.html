@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block page_title %}Data Koleksi{% endblock %}
+
+{% block content %}
+{{ card_open('Koleksi Data dari Link', 'Tempel satu link — platform dideteksi otomatis, komentar diambil, lalu disimpan jadi CSV') }}
+<form method="post" class="space-y-4">
+  <div>
+    <label for="url" class="mb-1.5 block text-sm font-medium text-slate-700">
+      Link Video / Post / Pesan <span class="text-red-500">*</span>
+    </label>
+    <input type="text" id="url" name="url" required value="{{ form_url }}"
+           placeholder="https://www.youtube.com/watch?v=XXXXXXX  ·  https://www.instagram.com/p/ABC123/  ·  https://t.me/namaChannel/12345"
+           class="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 font-mono text-sm shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+    <p class="mt-1.5 text-xs text-slate-500">
+      Didukung: <b>YouTube</b> (watch/shorts/youtu.be) · <b>Instagram</b> (post/reel publik) ·
+      <b>Telegram</b> (pesan di channel publik yang kamu ikuti).
+    </p>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label for="max_comments" class="mb-1.5 block text-sm font-medium text-slate-700">Maks. Komentar</label>
+      <select id="max_comments" name="max_comments"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+        {% for n in [50, 100, 250, 500, 1000] %}
+        <option value="{{ n }}" {% if n == 100 %}selected{% endif %}>{{ n }} komentar</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="flex flex-col justify-end gap-2">
+      <label class="inline-flex cursor-pointer items-center gap-2.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm">
+        <input type="checkbox" name="include_replies" checked class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+        <span class="text-slate-700">Sertakan reply (YouTube &amp; Telegram)</span>
+      </label>
+      <label class="inline-flex cursor-pointer items-center gap-2.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm">
+        <input type="checkbox" name="append_mode" class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+        <span class="text-slate-700">Tambahkan ke data yang sudah ada</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="flex flex-wrap gap-2 pt-1">
+    <button type="submit"
+            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40">
+      {{ icon_svg(IC['tray'], 'h-4 w-4') }} Koleksi Sekarang
+    </button>
+    <a href="{{ url_for('crawl') }}"
+       class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">
+      Crawling massal (kata kunci)
+    </a>
+    <a href="{{ url_for('import_data') }}"
+       class="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50">
+      Impor manual
+    </a>
+  </div>
+</form>
+
+<div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+  <div class="rounded-lg px-3.5 py-2.5 text-xs ring-1 ring-inset {{ 'bg-emerald-50 text-emerald-700 ring-emerald-200' if yt_ready else 'bg-slate-50 text-slate-500 ring-slate-200' }}">
+    <b>YouTube</b> — {{ 'siap (API key ada)' if yt_ready else 'API key belum diisi di .env' }}
+  </div>
+  <div class="rounded-lg px-3.5 py-2.5 text-xs ring-1 ring-inset {{ 'bg-emerald-50 text-emerald-700 ring-emerald-200' if tg_ready else 'bg-slate-50 text-slate-500 ring-slate-200' }}">
+    <b>Telegram</b> — {{ 'siap (sesi login ada)' if tg_ready else 'belum siap: isi .env + python setup_telegram.py' }}
+  </div>
+  <div class="rounded-lg px-3.5 py-2.5 text-xs ring-1 ring-inset {{ 'bg-emerald-50 text-emerald-700 ring-emerald-200' if ig_ready else 'bg-amber-50 text-amber-700 ring-amber-200' }}">
+    <b>Instagram</b> — {{ 'kredensial ada' if ig_ready else 'kredensial belum diisi (bisa kena login_required)' }}
+  </div>
+</div>
+{{ card_close() }}
+
+{% if result %}
+{{ card_open('Hasil Koleksi') }}
+<div class="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+  <div class="rounded-lg bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+    <div class="text-xs text-slate-500">Platform</div>
+    <div class="text-lg font-bold uppercase text-slate-800">{{ result.platform }}</div>
+  </div>
+  <div class="rounded-lg bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+    <div class="text-xs text-slate-500">Komentar tersimpan</div>
+    <div class="text-lg font-bold text-slate-800">{{ '{:,}'.format(result.comments) }}</div>
+  </div>
+  <div class="rounded-lg bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+    <div class="text-xs text-slate-500">Sumber</div>
+    <div class="text-lg font-bold text-slate-800">{{ result.sources }}</div>
+  </div>
+  <div class="rounded-lg bg-slate-50 px-4 py-3 ring-1 ring-inset ring-slate-200">
+    <div class="text-xs text-slate-500">File CSV</div>
+    <div class="text-xs font-semibold text-slate-700">komentar_media.csv</div>
+  </div>
+</div>
+<p class="mb-3 text-sm text-slate-600">
+  <b>{{ result.title }}</b><br>
+  <a href="{{ result.url }}" target="_blank" rel="noopener" class="text-xs text-blue-600 underline">{{ result.url }}</a>
+</p>
+<a href="{{ url_for('preprocessing') }}"
+   class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">
+  Lanjut ke Preprocessing →
+</a>
+{{ card_close() }}
+{% endif %}
+
+{{ card_open('Catatan Penting', 'Supaya tidak buang waktu kalau gagal') }}
+<ul class="list-disc space-y-1.5 pl-5 text-sm text-slate-600">
+  <li><b>Bukan "AI yang scraping".</b> Platform dikenali dari pola link, lalu tiap platform
+      memakai jalur resmi/terbaiknya: YouTube Data API, Instagram (Instaloader), Telegram (API user).</li>
+  <li><b>Instagram</b> — paling rapuh. Kalau muncul <i>checkpoint/CAPTCHA</i>, jangan diulang-ulang;
+      selesaikan verifikasi di browser, tunggu 24–72 jam, atau pakai
+      <a href="{{ url_for('import_data') }}" class="font-semibold text-blue-600 underline">Impor manual</a>.</li>
+  <li><b>Telegram</b> — link harus pesan di channel <b>publik</b> yang sudah kamu ikuti.</li>
+  <li><b>YouTube</b> — 1 link = 1 video; tiap halaman komentar memakai kuota 1 unit (10.000/hari).</li>
+  <li>Platform lain (TikTok/X/Facebook) tidak didukung karena tidak ada jalur resmi —
+      pakai Impor manual.</li>
+</ul>
+{{ card_close() }}
+{% endblock %}

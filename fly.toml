@@ -1,0 +1,22 @@
+# Konfigurasi Fly.io.
+# Nama aplikasi (app = "...") diisi otomatis oleh perintah `fly launch`.
+# Region Singapore: latensi paling kecil untuk akses dari Indonesia.
+primary_region = "sin"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true    # mesin berhenti saat idle (hemat biaya)
+  auto_start_machines = true   # nyala lagi otomatis saat ada request
+  min_machines_running = 0
+  [http_service.concurrency]
+    type = "requests"
+    concurrency = 250
+
+[env]
+  PORT = "8080"
+  PYTHONUNBUFFERED = "1"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512MB"

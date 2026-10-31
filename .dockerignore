@@ -1,0 +1,13 @@
+# Jangan ikut ke dalam image Docker
+.env
+.git
+.gitkeep
+__pycache__/
+*.pyc
+data/*
+models/*
+static/charts/*.png
+.venv
+venv
+contoh_laporan_sentimen.pdf
+*.pdf

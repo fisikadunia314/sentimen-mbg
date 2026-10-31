@@ -5,7 +5,7 @@
 {% block content %}
 {% set info = metrics.get('dataset_info', {}) if metrics else {} %}
 
-{{ card_open('Latih Model Klasifikasi', 'Naïve Bayes & SVM dilatih dengan fitur TF-IDF (1–2 gram) pada teks hasil stemming') }}
+{{ card_open('Latih Model Klasifikasi', 'Pilih model yang ingin dilatih — klasik (TF-IDF), deep learning (LSTM/GRU), atau transformer (BERT/IndoBERT)') }}
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
   <div class="rounded-lg border border-slate-200 p-4 text-center">
     <div class="text-2xl font-bold text-slate-800">{{ info.get('total_samples', total_rows) }}</div>
@@ -28,18 +28,72 @@
   <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">models/</code>
   dan metrik evaluasinya ke <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">models/metrics.json</code>.
 </p>
-<form method="post" class="mt-5">
+<form method="post" class="mt-5 space-y-4">
+  <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div>
+      <label for="bahasa" class="mb-1.5 block text-sm font-medium text-slate-700">Bahasa Dataset</label>
+      <select id="bahasa" name="bahasa"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30">
+        <option value="id" {% if lang_active != 'en' %}selected{% endif %}>Bahasa Indonesia (IndoBERT)</option>
+        <option value="en" {% if lang_active == 'en' %}selected{% endif %}>English (BERT)</option>
+        <option value="mix" {% if lang_active == 'mix' %}selected{% endif %}>Campuran Indonesia + Inggris</option>
+      </select>
+      <p class="mt-1.5 text-xs text-slate-500">
+        Menentukan model transformer &amp; leksikon labeling. Jalankan ulang Preprocessing setelah mengubah bahasa.
+        {% if lang_active == 'mix' %}Mode campuran: bahasa tiap komentar dideteksi otomatis — IndoBERT untuk baris Indonesia, BERT untuk baris Inggris, lalu dipilih per komentar saat prediksi.{% endif %}
+      </p>
+    </div>
+    <div>
+      <label class="mb-1.5 block text-sm font-medium text-slate-700">Status Paket</label>
+      <div class="space-y-1.5 text-xs">
+        <div class="rounded-lg px-3 py-2 ring-1 ring-inset {{ 'bg-emerald-50 text-emerald-700 ring-emerald-200' if torch_ready else 'bg-amber-50 text-amber-700 ring-amber-200' }}">
+          PyTorch (LSTM/GRU): {{ 'tersedia' if torch_ready else 'belum terinstall — pip install -r requirements-dl.txt' }}
+        </div>
+        <div class="rounded-lg px-3 py-2 ring-1 ring-inset {{ 'bg-emerald-50 text-emerald-700 ring-emerald-200' if tf_ready else 'bg-amber-50 text-amber-700 ring-amber-200' }}">
+          Transformers (BERT/IndoBERT): {{ 'tersedia' if tf_ready else 'belum terinstall — pip install -r requirements-dl.txt' }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <span class="mb-2 block text-sm font-medium text-slate-700">Model yang Dilatih</span>
+    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <label class="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-300 bg-white p-3 text-sm shadow-sm">
+        <input type="checkbox" name="models" value="klasik" checked class="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+        <span><b class="text-slate-800">Naïve Bayes + SVM</b><br><span class="text-xs text-slate-500">TF-IDF 1–2 gram · cepat · baseline wajib</span></span>
+      </label>
+      <label class="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-300 bg-white p-3 text-sm shadow-sm">
+        <input type="checkbox" name="models" value="lstm" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+        <span><b class="text-slate-800">LSTM (BiLSTM)</b><br><span class="text-xs text-slate-500">Embedding dari korpus · min. 20 data</span></span>
+      </label>
+      <label class="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-300 bg-white p-3 text-sm shadow-sm">
+        <input type="checkbox" name="models" value="gru" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+        <span><b class="text-slate-800">GRU (BiGRU)</b><br><span class="text-xs text-slate-500">Lebih ringan dari LSTM · min. 20 data</span></span>
+      </label>
+      <label class="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-300 bg-white p-3 text-sm shadow-sm">
+        <input type="checkbox" name="models" value="bert" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+        <span><b class="text-slate-800">BERT / IndoBERT</b><br><span class="text-xs text-slate-500">Fine-tuning transformer · unduh model ±1x · min. 20 data</span></span>
+      </label>
+    </div>
+  </div>
+
   <button type="submit"
           class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-blue-700">
     {{ icon_svg(IC['cpu'], 'h-4 w-4') }} Latih Model
   </button>
+  <p class="text-xs text-slate-500">
+    Model DL/BERT lebih lambat di CPU: LSTM/GRU ±10–60 detik, BERT ±1–10 menit
+    (tergantung jumlah data). Untuk data &lt; 100 komentar, BERT biasanya kalah
+    dari TF-IDF+SVM — itu temuan yang menarik untuk dibahas di laporan.
+  </p>
 </form>
 {{ card_close() }}
 
 {% if metrics %}
 {{ card_open('Hasil Evaluasi Terakhir', 'Klik untuk melihat detail metrik & confusion matrix') }}
 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-  {% for name, label in [('naive_bayes', 'Naïve Bayes'), ('svm', 'SVM (Linear)')] %}
+  {% for name, label in [('naive_bayes', 'Naïve Bayes'), ('svm', 'SVM (Linear)'), ('lstm', 'LSTM'), ('gru', 'GRU'), ('bert', 'BERT / IndoBERT')] %}
   {% if name in metrics %}
   <div class="rounded-lg border border-slate-200 p-4">
     <div class="mb-2 flex items-center justify-between">
